@@ -1,0 +1,34 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Local configuration
+local.properties
+
+# Android
+captures/
+.externalNativeBuild/
+.cxx/
+
+# macOS
+.DS_Store
+
+# Signing / secrets
+*.jks
+*.keystore
+
+# Environment files
+.env
+.env.*
+
+# Local AI development instructions
+CLAUDE.md
+.claude/
+
+# Logs
+*.log
