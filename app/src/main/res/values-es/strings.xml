@@ -1,12 +1,16 @@
 <resources>
-    <string name="home_subtitle">Elige una acción para comenzar</string>
+    <string name="app_tagline">Ventas simples. Control total de tu negocio.</string>
     <string name="action_quick_sale">Venta Rápida</string>
+    <string name="action_quick_sale_subtitle">Registra una venta ahora</string>
     <string name="action_new_comanda">Nueva Comanda</string>
+    <string name="action_new_comanda_subtitle">Abrir una nueva comanda</string>
     <string name="action_open_comandas">Comandas Abiertas</string>
     <string name="action_products">Productos</string>
     <string name="action_customers">Clientes</string>
     <string name="action_fiado">Fiado</string>
     <string name="action_cash_register">Caja</string>
+    <string name="section_service">ATENCIÓN</string>
+    <string name="section_manage">GESTIONAR</string>
     <string name="placeholder_message">Esta función estará disponible en una próxima etapa de OpenComanda.</string>
     <string name="action_back">Volver</string>
 </resources>

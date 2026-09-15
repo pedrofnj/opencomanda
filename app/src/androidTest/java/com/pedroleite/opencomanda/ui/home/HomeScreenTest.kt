@@ -51,7 +51,9 @@ class HomeScreenTest {
             R.string.action_customers,
             R.string.action_fiado,
         ).forEach { resId ->
-            composeTestRule.onNodeWithText(string(resId)).assertHasClickAction()
+            // substring: Primary cards now also show a short supporting line, whose text is
+            // merged into the same semantics node as the label.
+            composeTestRule.onNodeWithText(string(resId), substring = true).assertHasClickAction()
         }
     }
 
@@ -60,7 +62,9 @@ class HomeScreenTest {
         var navigated: Destination? = null
         setHomeContent(onNavigate = { navigated = it })
 
-        composeTestRule.onNodeWithText(string(R.string.action_quick_sale)).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true)
+            .performScrollTo()
+            .performClick()
 
         assertEquals(Destination.QuickSale, navigated)
     }
@@ -70,7 +74,9 @@ class HomeScreenTest {
         var navigated: Destination? = null
         setHomeContent(onNavigate = { navigated = it })
 
-        composeTestRule.onNodeWithText(string(R.string.action_new_comanda)).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(string(R.string.action_new_comanda), substring = true)
+            .performScrollTo()
+            .performClick()
 
         assertEquals(Destination.NewComanda, navigated)
     }

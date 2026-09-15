@@ -1,12 +1,16 @@
 <resources>
-    <string name="home_subtitle">Choose an action to get started</string>
+    <string name="app_tagline">Simple sales. Full control of your business.</string>
     <string name="action_quick_sale">Quick Sale</string>
+    <string name="action_quick_sale_subtitle">Record a sale now</string>
     <string name="action_new_comanda">New Comanda</string>
+    <string name="action_new_comanda_subtitle">Start a new tab</string>
     <string name="action_open_comandas">Open Comandas</string>
     <string name="action_products">Products</string>
     <string name="action_customers">Customers</string>
     <string name="action_fiado">Store Credit</string>
     <string name="action_cash_register">Cash Register</string>
+    <string name="section_service">SERVICE</string>
+    <string name="section_manage">MANAGE</string>
     <string name="placeholder_message">This feature will be available in an upcoming phase of OpenComanda.</string>
     <string name="action_back">Back</string>
 </resources>

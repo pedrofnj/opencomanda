@@ -42,8 +42,8 @@ class NavigationTest {
     fun startDestinationIsHome() {
         setNavHostContent()
 
-        composeTestRule.onNodeWithText(string(R.string.action_quick_sale)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.action_new_comanda)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.action_new_comanda), substring = true).assertExists()
     }
 
     @Test
@@ -63,6 +63,6 @@ class NavigationTest {
         composeTestRule.onNodeWithText(string(R.string.action_customers)).performScrollTo().performClick()
         composeTestRule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
 
-        composeTestRule.onNodeWithText(string(R.string.action_quick_sale)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true).assertExists()
     }
 }
