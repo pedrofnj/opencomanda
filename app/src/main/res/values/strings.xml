@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name" translatable="false">OpenComanda</string>
+    <string name="welcome_message">Bem-vindo ao OpenComanda</string>
+</resources>
