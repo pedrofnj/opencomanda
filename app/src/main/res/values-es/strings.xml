@@ -1,3 +1,12 @@
 <resources>
-    <string name="welcome_message">Bienvenido a OpenComanda</string>
+    <string name="home_subtitle">Elige una acción para comenzar</string>
+    <string name="action_quick_sale">Venta Rápida</string>
+    <string name="action_new_comanda">Nueva Comanda</string>
+    <string name="action_open_comandas">Comandas Abiertas</string>
+    <string name="action_products">Productos</string>
+    <string name="action_customers">Clientes</string>
+    <string name="action_fiado">Fiado</string>
+    <string name="action_cash_register">Caja</string>
+    <string name="placeholder_message">Esta función estará disponible en una próxima etapa de OpenComanda.</string>
+    <string name="action_back">Volver</string>
 </resources>

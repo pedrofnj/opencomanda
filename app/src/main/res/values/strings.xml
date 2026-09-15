@@ -1,4 +1,13 @@
 <resources>
     <string name="app_name" translatable="false">OpenComanda</string>
-    <string name="welcome_message">Bem-vindo ao OpenComanda</string>
+    <string name="home_subtitle">Escolha uma ação para começar</string>
+    <string name="action_quick_sale">Venda Rápida</string>
+    <string name="action_new_comanda">Nova Comanda</string>
+    <string name="action_open_comandas">Comandas Abertas</string>
+    <string name="action_products">Produtos</string>
+    <string name="action_customers">Clientes</string>
+    <string name="action_fiado">Fiado</string>
+    <string name="action_cash_register">Caixa</string>
+    <string name="placeholder_message">Esta funcionalidade estará disponível em uma próxima etapa do OpenComanda.</string>
+    <string name="action_back">Voltar</string>
 </resources>
