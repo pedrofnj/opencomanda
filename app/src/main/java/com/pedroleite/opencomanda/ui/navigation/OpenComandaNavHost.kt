@@ -10,6 +10,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.ui.components.PlaceholderScreen
+import com.pedroleite.opencomanda.ui.customers.CustomerFormScreen
+import com.pedroleite.opencomanda.ui.customers.CustomerListScreen
 import com.pedroleite.opencomanda.ui.home.HomeScreen
 import com.pedroleite.opencomanda.ui.products.CategoryManagementScreen
 import com.pedroleite.opencomanda.ui.products.ProductFormScreen
@@ -76,9 +78,30 @@ fun OpenComandaNavHost(navController: NavHostController = rememberNavController(
             )
         }
         composable(Destination.Customers.route) {
-            PlaceholderScreen(
-                title = stringResource(R.string.action_customers),
+            CustomerListScreen(
                 onBack = { navController.popBackStack() },
+                onCreateCustomer = { navController.navigate(Destination.CustomerForm.createRoute()) },
+                onEditCustomer = { customerId ->
+                    navController.navigate(Destination.CustomerForm.createRoute(customerId))
+                },
+            )
+        }
+        composable(
+            route = Destination.CustomerForm.route,
+            arguments = listOf(
+                navArgument(Destination.CustomerForm.ARG_CUSTOMER_ID) {
+                    type = NavType.LongType
+                    defaultValue = Destination.CustomerForm.NO_CUSTOMER_ID
+                },
+            ),
+        ) { backStackEntry ->
+            val customerId = backStackEntry.arguments
+                ?.getLong(Destination.CustomerForm.ARG_CUSTOMER_ID)
+                ?.takeIf { it != Destination.CustomerForm.NO_CUSTOMER_ID }
+            CustomerFormScreen(
+                customerId = customerId,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() },
             )
         }
         composable(Destination.Fiado.route) {

@@ -59,4 +59,25 @@
     <string name="category_edit_action">Edit %1$s</string>
     <string name="category_filter_all">All</string>
     <string name="category_filter_uncategorized">No category</string>
+
+    <string name="customer_list_empty_title">No customers yet</string>
+    <string name="customer_list_empty_message">Add customers to speed up tabs and store credit.</string>
+    <string name="customer_list_empty_cta">Add customer</string>
+    <string name="customer_add_fab">New customer</string>
+    <string name="customer_create_title">New customer</string>
+    <string name="customer_edit_title">Edit customer</string>
+    <string name="customer_field_name">Name</string>
+    <string name="customer_field_name_error">Enter the customer name</string>
+    <string name="customer_field_phone">Phone (optional)</string>
+    <string name="customer_field_notes">Notes (optional)</string>
+    <string name="customer_save">Save</string>
+    <string name="customer_save_error">Couldn\'t save the customer. Please try again.</string>
+    <string name="customer_status_active">Active</string>
+    <string name="customer_status_inactive">Inactive</string>
+    <string name="customer_search_label">Search customers</string>
+    <string name="customer_search_clear">Clear search</string>
+    <string name="customer_filter_all">All</string>
+    <string name="customer_filter_active">Active</string>
+    <string name="customer_filter_inactive">Inactive</string>
+    <string name="customer_list_no_results">No customers found</string>
 </resources>

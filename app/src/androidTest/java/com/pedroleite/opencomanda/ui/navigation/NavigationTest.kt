@@ -78,10 +78,31 @@ class NavigationTest {
     }
 
     @Test
-    fun backNavigationFromAPlaceholderReturnsToHome() {
+    fun navigatingToCustomersOpensTheRealCustomersScreenNotAPlaceholder() {
         setNavHostContent()
 
         composeTestRule.onNodeWithText(string(R.string.action_customers)).performScrollTo().performClick()
+
+        // The real Customers screen shows its FAB label; it must never show the placeholder copy.
+        composeTestRule.onNodeWithText(string(R.string.customer_add_fab)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+    }
+
+    @Test
+    fun customersToNewCustomerOpensTheCreateCustomerForm() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_customers)).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(string(R.string.customer_add_fab)).performClick()
+
+        composeTestRule.onNodeWithText(string(R.string.customer_create_title)).assertExists()
+    }
+
+    @Test
+    fun backNavigationFromAPlaceholderReturnsToHome() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_cash_register)).performScrollTo().performClick()
         composeTestRule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
 
         composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true).assertExists()

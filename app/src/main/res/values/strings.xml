@@ -60,4 +60,25 @@
     <string name="category_edit_action">Editar %1$s</string>
     <string name="category_filter_all">Todas</string>
     <string name="category_filter_uncategorized">Sem categoria</string>
+
+    <string name="customer_list_empty_title">Nenhum cliente cadastrado</string>
+    <string name="customer_list_empty_message">Cadastre clientes para agilizar comandas e fiado.</string>
+    <string name="customer_list_empty_cta">Cadastrar cliente</string>
+    <string name="customer_add_fab">Novo cliente</string>
+    <string name="customer_create_title">Novo cliente</string>
+    <string name="customer_edit_title">Editar cliente</string>
+    <string name="customer_field_name">Nome</string>
+    <string name="customer_field_name_error">Informe o nome do cliente</string>
+    <string name="customer_field_phone">Telefone (opcional)</string>
+    <string name="customer_field_notes">Observações (opcional)</string>
+    <string name="customer_save">Salvar</string>
+    <string name="customer_save_error">Não foi possível salvar o cliente. Tente novamente.</string>
+    <string name="customer_status_active">Ativo</string>
+    <string name="customer_status_inactive">Inativo</string>
+    <string name="customer_search_label">Buscar clientes</string>
+    <string name="customer_search_clear">Limpar busca</string>
+    <string name="customer_filter_all">Todos</string>
+    <string name="customer_filter_active">Ativos</string>
+    <string name="customer_filter_inactive">Inativos</string>
+    <string name="customer_list_no_results">Nenhum cliente encontrado</string>
 </resources>
