@@ -2,6 +2,8 @@ package com.pedroleite.opencomanda.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -9,7 +11,21 @@ import androidx.room.PrimaryKey
  * orders that reference it keep working — see [OrderItemEntity], which additionally snapshots
  * the name/price so future edits here never alter past sales.
  */
-@Entity(tableName = "products")
+@Entity(
+    tableName = "products",
+    foreignKeys = [
+        ForeignKey(
+            entity = CategoryEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["categoryId"],
+            // A category is only ever soft-disabled, never physically deleted, by the app itself
+            // — SET_NULL is a defensive fallback, not a path the app exercises, so a product can
+            // never be dragged down (or its data corrupted) by whatever happens to its category.
+            onDelete = ForeignKey.SET_NULL,
+        ),
+    ],
+    indices = [Index("categoryId")],
+)
 data class ProductEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -32,4 +48,7 @@ data class ProductEntity(
     val active: Boolean = true,
     val createdAt: Long,
     val updatedAt: Long,
+    /** Optional: a product may exist without a category, and keeps its category even if that
+     *  category is later deactivated (see [CategoryEntity.active]). */
+    val categoryId: Long? = null,
 )

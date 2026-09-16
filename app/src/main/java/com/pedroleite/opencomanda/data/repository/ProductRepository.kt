@@ -10,6 +10,13 @@ class ProductRepository(private val productDao: ProductDao) {
 
     fun getActive(): Flow<List<ProductEntity>> = productDao.getActive()
 
+    /** Active products in a given category — e.g. for a future Quick Sale category browser. */
+    fun getActiveByCategory(categoryId: Long): Flow<List<ProductEntity>> =
+        productDao.getActiveByCategory(categoryId)
+
+    /** Active products with no category — e.g. for a future Quick Sale "uncategorized" section. */
+    fun getActiveUncategorized(): Flow<List<ProductEntity>> = productDao.getActiveUncategorized()
+
     suspend fun getById(id: Long): ProductEntity? = productDao.getById(id)
 
     suspend fun create(
@@ -19,6 +26,7 @@ class ProductRepository(private val productDao: ProductDao) {
         costCents: Long?,
         trackStock: Boolean,
         initialStockQuantity: Double,
+        categoryId: Long? = null,
     ): Long {
         require(name.isNotBlank()) { "Product name must not be blank" }
         require(priceCents >= 0) { "Product price cannot be negative" }
@@ -36,6 +44,7 @@ class ProductRepository(private val productDao: ProductDao) {
                 active = true,
                 createdAt = now,
                 updatedAt = now,
+                categoryId = categoryId,
             ),
         )
     }

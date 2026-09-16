@@ -36,6 +36,18 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets {
+        getByName("androidTest") {
+            // Room schema JSON snapshots (one per version), needed by MigrationTestHelper to
+            // build a real historical database and test the actual migration path against it.
+            assets.srcDirs("$projectDir/schemas")
+        }
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -65,7 +77,22 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.androidx.room.testing)
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+// AGP keeps the app and androidTest classpaths in lockstep ("consistent resolution"), so
+// whatever version of kotlinx-serialization-core the *app* classpath settles on (pulled in
+// transitively by Room, for its schema-bundle classes) also applies to androidTest. Left alone,
+// it settles on an old version too ABI-incompatible with Room's compiled schema-bundle
+// (de)serializers, which room-testing's MigrationTestHelper needs — throwing AbstractMethodError
+// when loading a schema JSON. Pinning it here, on the app side, fixes both classpaths at once.
+dependencies {
+    constraints {
+        add("implementation", "org.jetbrains.kotlinx:kotlinx-serialization-core") {
+            version { strictly(libs.versions.kotlinxSerializationCore.get()) }
+        }
+    }
 }

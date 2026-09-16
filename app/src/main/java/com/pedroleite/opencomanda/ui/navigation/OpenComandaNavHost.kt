@@ -3,12 +3,17 @@ package com.pedroleite.opencomanda.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.ui.components.PlaceholderScreen
 import com.pedroleite.opencomanda.ui.home.HomeScreen
+import com.pedroleite.opencomanda.ui.products.CategoryManagementScreen
+import com.pedroleite.opencomanda.ui.products.ProductFormScreen
+import com.pedroleite.opencomanda.ui.products.ProductListScreen
 
 /**
  * OpenComanda's top-level navigation graph. Every non-Home destination is wired to a
@@ -40,9 +45,34 @@ fun OpenComandaNavHost(navController: NavHostController = rememberNavController(
             )
         }
         composable(Destination.Products.route) {
-            PlaceholderScreen(
-                title = stringResource(R.string.action_products),
+            ProductListScreen(
                 onBack = { navController.popBackStack() },
+                onCreateProduct = { navController.navigate(Destination.ProductForm.createRoute()) },
+                onEditProduct = { productId ->
+                    navController.navigate(Destination.ProductForm.createRoute(productId))
+                },
+                onManageCategories = { navController.navigate(Destination.CategoryManagement.route) },
+            )
+        }
+        composable(Destination.CategoryManagement.route) {
+            CategoryManagementScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = Destination.ProductForm.route,
+            arguments = listOf(
+                navArgument(Destination.ProductForm.ARG_PRODUCT_ID) {
+                    type = NavType.LongType
+                    defaultValue = Destination.ProductForm.NO_PRODUCT_ID
+                },
+            ),
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments
+                ?.getLong(Destination.ProductForm.ARG_PRODUCT_ID)
+                ?.takeIf { it != Destination.ProductForm.NO_PRODUCT_ID }
+            ProductFormScreen(
+                productId = productId,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() },
             )
         }
         composable(Destination.Customers.route) {

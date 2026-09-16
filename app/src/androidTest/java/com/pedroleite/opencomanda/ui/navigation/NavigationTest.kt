@@ -47,13 +47,34 @@ class NavigationTest {
     }
 
     @Test
-    fun navigatingToProductsShowsThePlaceholderWithTheRightTitle() {
+    fun navigatingToFiadoShowsThePlaceholderWithTheRightTitle() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_fiado)).performScrollTo().performClick()
+
+        composeTestRule.onNodeWithText(string(R.string.action_fiado)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertExists()
+    }
+
+    @Test
+    fun navigatingToProductsOpensTheRealProductsScreenNotAPlaceholder() {
         setNavHostContent()
 
         composeTestRule.onNodeWithText(string(R.string.action_products)).performScrollTo().performClick()
 
-        composeTestRule.onNodeWithText(string(R.string.action_products)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertExists()
+        // The real Products screen shows its FAB label; it must never show the placeholder copy.
+        composeTestRule.onNodeWithText(string(R.string.product_add_fab)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+    }
+
+    @Test
+    fun manageCategoriesActionFromProductsOpensCategoryManagement() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_products)).performScrollTo().performClick()
+        composeTestRule.onNodeWithContentDescription(string(R.string.category_manage_action)).performClick()
+
+        composeTestRule.onNodeWithText(string(R.string.category_list_title)).assertExists()
     }
 
     @Test

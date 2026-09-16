@@ -24,6 +24,14 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE active = 1 ORDER BY name ASC")
     fun getActive(): Flow<List<ProductEntity>>
 
+    /** Active products in a given category — e.g. for a future Quick Sale category browser. */
+    @Query("SELECT * FROM products WHERE active = 1 AND categoryId = :categoryId ORDER BY name ASC")
+    fun getActiveByCategory(categoryId: Long): Flow<List<ProductEntity>>
+
+    /** Active products with no category — e.g. for a future Quick Sale "uncategorized" section. */
+    @Query("SELECT * FROM products WHERE active = 1 AND categoryId IS NULL ORDER BY name ASC")
+    fun getActiveUncategorized(): Flow<List<ProductEntity>>
+
     @Query("UPDATE products SET active = :active, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setActive(id: Long, active: Boolean, updatedAt: Long)
 

@@ -13,4 +13,17 @@ sealed class Destination(val route: String) {
     data object Customers : Destination("customers")
     data object Fiado : Destination("fiado")
     data object CashRegister : Destination("cash_register")
+
+    /** Create Product and Edit Product share one destination/screen; [ARG_PRODUCT_ID] is absent for create. */
+    data object ProductForm : Destination("product_form?productId={productId}") {
+        const val ARG_PRODUCT_ID = "productId"
+        const val NO_PRODUCT_ID = -1L
+
+        fun createRoute(productId: Long? = null): String =
+            if (productId != null) "product_form?productId=$productId" else "product_form"
+    }
+
+    /** Reached from Products — categories are managed alongside products, not as their own
+     *  top-level Home destination. */
+    data object CategoryManagement : Destination("category_management")
 }
