@@ -79,6 +79,8 @@ object ComandaDetailTestTags {
     const val ADD_PRODUCTS_BUTTON = "comanda_add_products"
     const val CLOSE_BUTTON = "comanda_close"
     const val CONFIRM_PAYMENT_BUTTON = "comanda_confirm_payment"
+    const val FIADO_ACTION = "comanda_fiado_action"
+    const val CONFIRM_FIADO_BUTTON = "comanda_confirm_fiado"
     const val CANCEL_ACTION = "comanda_cancel_action"
     const val CANCEL_CONFIRM = "comanda_cancel_confirm"
     const val CANCEL_DISMISS = "comanda_cancel_dismiss"
@@ -124,6 +126,9 @@ fun ComandaDetailScreen(
     BackHandler(enabled = uiState.phase == ComandaDetailPhase.CLOSING) {
         viewModel.backToDetail()
     }
+    BackHandler(enabled = uiState.phase == ComandaDetailPhase.FIADO_CONFIRM) {
+        viewModel.backToClosing()
+    }
 
     when {
         uiState.notFound -> ComandaNotFoundScreen(onBack = onBack, modifier = modifier)
@@ -146,6 +151,12 @@ fun ComandaDetailScreen(
                 uiState = uiState,
                 viewModel = viewModel,
                 onBack = viewModel::backToDetail,
+                modifier = modifier,
+            )
+            ComandaDetailPhase.FIADO_CONFIRM -> ComandaFiadoConfirmScreen(
+                uiState = uiState,
+                viewModel = viewModel,
+                onBack = viewModel::backToClosing,
                 modifier = modifier,
             )
             ComandaDetailPhase.SUCCESS -> ComandaClosedScreen(
@@ -699,6 +710,139 @@ private fun ComandaClosingScreen(
                         Text(stringResource(R.string.comanda_confirm_payment))
                     }
                 }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    Text(
+                        text = stringResource(R.string.comanda_or_divider),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                val fiadoActionDescription = if (uiState.canStartFiado) {
+                    stringResource(R.string.comanda_fiado_action)
+                } else {
+                    stringResource(R.string.comanda_fiado_customer_required)
+                }
+                OutlinedButton(
+                    onClick = viewModel::startFiadoConfirm,
+                    enabled = uiState.canStartFiado,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = fiadoActionDescription }
+                        .testTag(ComandaDetailTestTags.FIADO_ACTION),
+                ) {
+                    Text(stringResource(R.string.comanda_fiado_action))
+                }
+                if (uiState.customer == null) {
+                    Text(
+                        text = stringResource(R.string.comanda_fiado_select_customer_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ComandaFiadoConfirmScreen(
+    uiState: ComandaDetailUiState,
+    viewModel: ComandaDetailViewModel,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val locale = LocalLocale.current.platformLocale
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.error) {
+        val error = uiState.error ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(comandaErrorMessage(error, context))
+        viewModel.dismissError()
+    }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.comanda_fiado_confirm_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back),
+                        )
+                    }
+                },
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) { Snackbar(it) } },
+    ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 560.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text(
+                    text = uiState.order?.displayName.orEmpty(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                if (uiState.customer != null) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            text = stringResource(R.string.comanda_field_customer),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(uiState.customer.name, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(uiState.items, key = { it.id }) { item ->
+                        ComandaItemRow(item, locale)
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(stringResource(R.string.quicksale_total_label), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = Money(uiState.totalCents).format(locale),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                Button(
+                    onClick = viewModel::confirmFiado,
+                    enabled = uiState.canConfirmFiado,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(ComandaDetailTestTags.CONFIRM_FIADO_BUTTON),
+                ) {
+                    if (uiState.isClosing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Text(stringResource(R.string.comanda_fiado_confirm_action))
+                    }
+                }
             }
         }
     }
@@ -730,7 +874,9 @@ private fun ComandaClosedScreen(
                     tint = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = stringResource(R.string.comanda_closed_title),
+                    text = stringResource(
+                        if (summary?.isFiado == true) R.string.comanda_fiado_closed_title else R.string.comanda_closed_title,
+                    ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                 )
@@ -741,6 +887,16 @@ private fun ComandaClosedScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+
+                    if (summary.isFiado && summary.customerName != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                text = stringResource(R.string.comanda_field_customer),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(summary.customerName, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
 
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -761,12 +917,14 @@ private fun ComandaClosedScreen(
                         )
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(
-                            text = stringResource(R.string.quicksale_payment_method_label),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(paymentMethodLabel(summary.paymentMethod))
+                    if (!summary.isFiado && summary.paymentMethod != null) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                text = stringResource(R.string.quicksale_payment_method_label),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(paymentMethodLabel(summary.paymentMethod))
+                        }
                     }
                 }
 

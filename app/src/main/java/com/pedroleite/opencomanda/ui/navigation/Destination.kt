@@ -44,4 +44,18 @@ sealed class Destination(val route: String) {
         fun createRoute(customerId: Long? = null): String =
             if (customerId != null) "customer_form?customerId=$customerId" else "customer_form"
     }
+
+    /** A specific customer's Fiado detail — reached from [Fiado], the "who owes money?" list. */
+    data object CustomerFiado : Destination("customer_fiado/{customerId}") {
+        const val ARG_CUSTOMER_ID = "customerId"
+
+        fun createRoute(customerId: Long): String = "customer_fiado/$customerId"
+    }
+
+    /** A specific debt's detail — original/paid/remaining, history, and registering a payment. */
+    data object DebtDetail : Destination("debt_detail/{debtId}") {
+        const val ARG_DEBT_ID = "debtId"
+
+        fun createRoute(debtId: Long): String = "debt_detail/$debtId"
+    }
 }

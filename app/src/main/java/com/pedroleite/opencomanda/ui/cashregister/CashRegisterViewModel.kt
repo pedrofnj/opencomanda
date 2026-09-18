@@ -3,6 +3,7 @@ package com.pedroleite.opencomanda.ui.cashregister
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pedroleite.opencomanda.data.local.entity.CashSessionEntity
+import com.pedroleite.opencomanda.data.local.entity.DebtPaymentEntity
 import com.pedroleite.opencomanda.data.local.entity.PaymentEntity
 import com.pedroleite.opencomanda.data.repository.CashRegisterRepository
 import com.pedroleite.opencomanda.data.repository.CashSessionSummary
@@ -53,6 +54,9 @@ data class CashRegisterUiState(
      *  received and expected cash are all derived from this, so they update the moment a Quick
      *  Sale/Comanda payment is confirmed elsewhere, with no manual refresh. */
     val payments: List<PaymentEntity> = emptyList(),
+    /** Every Fiado repayment recorded for [openSession], live — combined into [totalsByMethod]
+     *  alongside [payments] so a debt repayment updates the dashboard the same way a sale does. */
+    val debtPayments: List<DebtPaymentEntity> = emptyList(),
     val mostRecentClosedSession: CashSessionEntity? = null,
     val openingBalanceCents: Long = 0,
     val openingNotes: String = "",
@@ -62,8 +66,15 @@ data class CashRegisterUiState(
     /** The just-closed session's authoritative summary, kept only long enough to show it. */
     val closedSummary: CashSessionSummary? = null,
 ) {
+    /** Sales [payments] and Fiado [debtPayments] merged by method — a debt repayment counts
+     *  toward this session's totals exactly like a regular sale (see [CashSessionSummary], the
+     *  repository's own authoritative equivalent computed on close). */
     val totalsByMethod: Map<PaymentMethod, Long>
-        get() = payments.groupBy { it.method }.mapValues { (_, forMethod) -> forMethod.sumOf { it.amountCents } }
+        get() {
+            val fromSales = payments.groupBy { it.method }.mapValues { (_, forMethod) -> forMethod.sumOf { it.amountCents } }
+            val fromDebts = debtPayments.groupBy { it.method }.mapValues { (_, forMethod) -> forMethod.sumOf { it.amountCents } }
+            return (fromSales.keys + fromDebts.keys).associateWith { method -> (fromSales[method] ?: 0L) + (fromDebts[method] ?: 0L) }
+        }
 
     val totalReceivedCents: Long get() = totalsByMethod.values.sum()
 
@@ -99,17 +110,24 @@ class CashRegisterViewModel(
         if (session == null) flowOf(emptyList()) else cashRegisterRepository.observePaymentsForSession(session.id)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val debtPaymentsFlow = openSessionFlow.flatMapLatest { session ->
+        if (session == null) flowOf(emptyList()) else cashRegisterRepository.observeDebtPaymentsForSession(session.id)
+    }
+
     val uiState: StateFlow<CashRegisterUiState> = combine(
         openSessionFlow,
         paymentsFlow,
+        debtPaymentsFlow,
         mostRecentClosedSession,
         screenState,
-    ) { session, payments, closedSession, screen ->
+    ) { session, payments, debtPayments, closedSession, screen ->
         CashRegisterUiState(
             isLoading = false,
             phase = resolvePhase(session, screen),
             openSession = session,
             payments = payments,
+            debtPayments = debtPayments,
             mostRecentClosedSession = closedSession,
             openingBalanceCents = screen.openingBalanceCents,
             openingNotes = screen.openingNotes,

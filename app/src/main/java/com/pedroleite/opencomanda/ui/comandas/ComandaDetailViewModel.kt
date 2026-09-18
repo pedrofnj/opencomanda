@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Which part of the Comanda detail flow is currently showing. */
-enum class ComandaDetailPhase { DETAIL, ADDING_PRODUCTS, CLOSING, SUCCESS }
+enum class ComandaDetailPhase { DETAIL, ADDING_PRODUCTS, CLOSING, FIADO_CONFIRM, SUCCESS }
 
 enum class ComandaDetailErrorType { INSUFFICIENT_STOCK, PRODUCT_UNAVAILABLE, ADD_FAILED, CLOSE_FAILED }
 
@@ -38,12 +38,16 @@ data class ComandaDetailError(
     val availableQuantity: Double? = null,
 )
 
-/** A closed Comanda's summary, kept only long enough to show the success screen. */
+/** A closed Comanda's summary, kept only long enough to show the success screen. [paymentMethod]
+ *  is null and [isFiado] is true when the Comanda was closed as Fiado instead of paid — no
+ *  money changed hands, so there is no method to show. */
 data class ComandaClosedSummary(
     val displayName: String,
     val items: List<OrderItemEntity>,
     val totalCents: Long,
-    val paymentMethod: PaymentMethod,
+    val paymentMethod: PaymentMethod?,
+    val isFiado: Boolean = false,
+    val customerName: String? = null,
 )
 
 private data class ComandaData(val order: OrderEntity?, val items: List<OrderItemEntity>)
@@ -101,6 +105,11 @@ data class ComandaDetailUiState(
     val canClose: Boolean get() = isOpen && items.isNotEmpty()
 
     val canConfirmClose: Boolean get() = canClose && paymentMethod != null && !isClosing
+
+    /** Fiado requires a registered customer on this Comanda — see [OrderRepository.closeOrderAsFiado]. */
+    val canStartFiado: Boolean get() = canClose && customer != null
+
+    val canConfirmFiado: Boolean get() = canStartFiado && !isClosing
 }
 
 /** Backs the Comanda detail screen. Unlike Quick Sale, every mutation here (add/decrement an
@@ -233,6 +242,15 @@ class ComandaDetailViewModel(
         screenState.update { it.copy(phase = ComandaDetailPhase.DETAIL, error = null) }
     }
 
+    fun startFiadoConfirm() {
+        if (!uiState.value.canStartFiado) return
+        screenState.update { it.copy(phase = ComandaDetailPhase.FIADO_CONFIRM, error = null) }
+    }
+
+    fun backToClosing() {
+        screenState.update { it.copy(phase = ComandaDetailPhase.CLOSING, error = null) }
+    }
+
     fun onPaymentMethodSelected(method: PaymentMethod) {
         screenState.update { it.copy(paymentMethod = method) }
     }
@@ -257,6 +275,34 @@ class ComandaDetailViewModel(
                     items = items,
                     totalCents = state.totalCents,
                     paymentMethod = method,
+                )
+                screenState.value = ScreenState(phase = ComandaDetailPhase.SUCCESS, completedSale = summary)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                screenState.update { it.copy(isClosing = false, error = ComandaDetailError(ComandaDetailErrorType.CLOSE_FAILED)) }
+            }
+        }
+    }
+
+    fun confirmFiado() {
+        val state = uiState.value
+        if (!state.canConfirmFiado) return
+        val customerName = requireNotNull(state.customer).name
+        val displayName = state.order?.displayName.orEmpty()
+        val items = state.items
+
+        screenState.update { it.copy(isClosing = true, error = null) }
+        viewModelScope.launch {
+            try {
+                orderRepository.closeOrderAsFiado(comandaId)
+                val summary = ComandaClosedSummary(
+                    displayName = displayName,
+                    items = items,
+                    totalCents = state.totalCents,
+                    paymentMethod = null,
+                    isFiado = true,
+                    customerName = customerName,
                 )
                 screenState.value = ScreenState(phase = ComandaDetailPhase.SUCCESS, completedSale = summary)
             } catch (e: CancellationException) {

@@ -52,13 +52,14 @@ class NavigationTest {
     }
 
     @Test
-    fun navigatingToFiadoShowsThePlaceholderWithTheRightTitle() {
+    fun navigatingToFiadoOpensTheRealScreenNotAPlaceholder() {
         setNavHostContent()
 
         composeTestRule.onNodeWithText(string(R.string.action_fiado)).performScrollTo().performClick()
 
-        composeTestRule.onNodeWithText(string(R.string.action_fiado)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertExists()
+        // The real Fiado screen shows its empty-state copy; it must never show the placeholder.
+        composeTestRule.onNodeWithText(string(R.string.fiado_empty_title)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
     }
 
     @Test
@@ -163,7 +164,7 @@ class NavigationTest {
     }
 
     @Test
-    fun backNavigationFromAPlaceholderReturnsToHome() {
+    fun backNavigationFromFiadoReturnsToHome() {
         setNavHostContent()
 
         composeTestRule.onNodeWithText(string(R.string.action_fiado)).performScrollTo().performClick()

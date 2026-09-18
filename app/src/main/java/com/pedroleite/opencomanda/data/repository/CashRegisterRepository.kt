@@ -6,14 +6,19 @@ import com.pedroleite.opencomanda.data.local.dao.CashSessionDao
 import com.pedroleite.opencomanda.data.local.dao.DebtPaymentDao
 import com.pedroleite.opencomanda.data.local.dao.PaymentDao
 import com.pedroleite.opencomanda.data.local.entity.CashSessionEntity
+import com.pedroleite.opencomanda.data.local.entity.DebtPaymentEntity
 import com.pedroleite.opencomanda.data.local.entity.PaymentEntity
 import com.pedroleite.opencomanda.domain.CashSessionStatus
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import kotlinx.coroutines.flow.Flow
 
 /**
- * A cash session's financial summary, computed from its persisted [PaymentEntity] rows — never
- * from a total supplied by the UI (see [CashRegisterRepository.closeSession]).
+ * A cash session's financial summary, computed from its persisted [PaymentEntity] and
+ * [DebtPaymentEntity] rows — never from a total supplied by the UI (see
+ * [CashRegisterRepository.closeSession]). [totalsByMethod] combines both sources: a regular
+ * sale and a Fiado repayment made in the same method land in the same row (see
+ * [CashRegisterRepository.buildSummary]) — a debt's original amount is never counted, only
+ * actual repayments are.
  *
  * [expectedCashCents] is [CashSessionEntity.openingBalanceCents] plus only the
  * [PaymentMethod.CASH] portion of [totalsByMethod] — PIX/debit/credit are received money too,
@@ -49,6 +54,11 @@ class CashRegisterRepository(
 
     fun observePaymentsForSession(sessionId: Long): Flow<List<PaymentEntity>> =
         paymentDao.observeForSession(sessionId)
+
+    /** Live Fiado repayments for [sessionId] — combined with [observePaymentsForSession] by the
+     *  dashboard's own totals so a debt repayment updates the live view exactly like a sale. */
+    fun observeDebtPaymentsForSession(sessionId: Long): Flow<List<DebtPaymentEntity>> =
+        debtPaymentDao.observeForSession(sessionId)
 
     /**
      * Opens a new cash session with [openingBalanceCents] of float/change money already in the
@@ -105,8 +115,14 @@ class CashRegisterRepository(
         return buildSummary(session)
     }
 
+    /** Source of truth for a session's totals: sales [PaymentEntity] rows plus Fiado
+     *  [DebtPaymentEntity] rows, merged by method — never a debt's original (unpaid) amount,
+     *  only money actually received (see [CashSessionSummary]'s own doc). */
     private suspend fun buildSummary(session: CashSessionEntity): CashSessionSummary {
-        val totals = paymentDao.getTotalsByMethodForSession(session.id).associate { it.method to it.totalCents }
+        val salesTotals = paymentDao.getTotalsByMethodForSession(session.id).associate { it.method to it.totalCents }
+        val debtTotals = debtPaymentDao.getTotalsByMethodForSession(session.id).associate { it.method to it.totalCents }
+        val totals = (salesTotals.keys + debtTotals.keys)
+            .associateWith { method -> (salesTotals[method] ?: 0L) + (debtTotals[method] ?: 0L) }
         val totalReceived = totals.values.sum()
         val cashReceived = totals[PaymentMethod.CASH] ?: 0L
         return CashSessionSummary(
@@ -116,10 +132,4 @@ class CashRegisterRepository(
             expectedCashCents = session.openingBalanceCents + cashReceived,
         )
     }
-
-    /** Money received paying off Fiado debts, grouped by payment method. Always empty for now —
-     *  Fiado/debt settlement isn't implemented yet (a later increment) — but [DebtPaymentEntity]
-     *  already carries its own `cashSessionId`, so once it exists this can be folded into
-     *  [CashSessionSummary] alongside sales without a schema change. */
-    suspend fun getDebtPaymentTotalsByMethod(sessionId: Long) = debtPaymentDao.getTotalsByMethodForSession(sessionId)
 }

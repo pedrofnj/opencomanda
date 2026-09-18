@@ -62,7 +62,7 @@ class CashRegisterRepositoryTest {
             productDao = database.productDao(),
             cashSessionDao = database.cashSessionDao(),
         )
-        debtRepository = DebtRepository(database, database.debtDao(), database.debtPaymentDao())
+        debtRepository = DebtRepository(database, database.debtDao(), database.debtPaymentDao(), database.cashSessionDao())
 
         val now = System.currentTimeMillis()
         productId = database.productDao().insert(
@@ -449,43 +449,165 @@ class CashRegisterRepositoryTest {
     }
 
     // ---------------------------------------------------------------------------------------
-    // Sales vs. Fiado debt repayments
+    // Sales vs. Fiado debt repayments — both are real received money, and must be combined,
+    // never double counted, and never confused with a debt's still-unpaid original amount.
     // ---------------------------------------------------------------------------------------
 
-    @Test
-    fun salesAndDebtRepaymentsAreTotaledSeparatelyByMethod() = runBlocking {
-        val sessionId = cashRegisterRepository.openSession(openingBalanceCents = 0)
-
-        // A regular cash sale of R$ 4,00.
-        orderRepository.confirmQuickSale(
-            lines = listOf(CartLine(productId, 1.0)),
-            method = PaymentMethod.CASH,
-            isFiado = false,
-            customerId = null,
-        )
-
-        // A Fiado sale of R$ 4,00 for the same product — must NOT appear in sales totals.
-        orderRepository.confirmQuickSale(
-            lines = listOf(CartLine(productId, 1.0)),
-            method = null,
-            isFiado = true,
-            customerId = customerId,
-        )
-
-        // A pre-existing debt gets paid off in cash during this session.
+    private suspend fun openDebt(amountCents: Long): Long {
         val now = System.currentTimeMillis()
-        val debtId = database.debtDao().insert(
-            DebtEntity(customerId = customerId, originalAmountCents = 2_000, status = DebtStatus.OPEN, createdAt = now),
+        return database.debtDao().insert(
+            DebtEntity(customerId = customerId, originalAmountCents = amountCents, status = DebtStatus.OPEN, createdAt = now),
         )
-        debtRepository.registerPayment(debtId, amountCents = 2_000, method = PaymentMethod.CASH, cashSessionId = sessionId)
+    }
+
+    @Test
+    fun aCashDebtRepaymentIsIncludedInTheCashRow() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(0)
+        sell(PaymentMethod.CASH) // Regular sale: 400 cents.
+        val debtId = openDebt(2_000)
+        debtRepository.registerPayment(debtId, amountCents = 1_000, method = PaymentMethod.CASH)
+
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertEquals(unitPriceCents + 1_000L, summary.receivedCentsFor(PaymentMethod.CASH))
+    }
+
+    @Test
+    fun aPixDebtRepaymentCountsTowardTotalReceivedButNotExpectedCash() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(openingBalanceCents = 1_000)
+        val debtId = openDebt(2_000)
+        debtRepository.registerPayment(debtId, amountCents = 900, method = PaymentMethod.PIX)
+
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertEquals(900L, summary.totalReceivedCents)
+        assertEquals(1_000L, summary.expectedCashCents)
+    }
+
+    @Test
+    fun aCardDebtRepaymentBehavesLikeAnyOtherNonCashMethod() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(0)
+        val debtId = openDebt(2_000)
+        debtRepository.registerPayment(debtId, amountCents = 500, method = PaymentMethod.DEBIT)
+
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertEquals(500L, summary.receivedCentsFor(PaymentMethod.DEBIT))
+        assertEquals(500L, summary.totalReceivedCents)
+        assertEquals(0L, summary.expectedCashCents)
+    }
+
+    @Test
+    fun salesAndDebtRepaymentsOfTheSameMethodAreCombinedIntoOneRow() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(0)
+        sell(PaymentMethod.CASH) // 400 cents.
+        val debtId = openDebt(5_000)
+        debtRepository.registerPayment(debtId, amountCents = 2_000, method = PaymentMethod.CASH)
 
         val summary = cashRegisterRepository.currentSummary(sessionId)
         assertEquals(1, summary.totalsByMethod.size)
-        assertEquals(400L, summary.receivedCentsFor(PaymentMethod.CASH))
+        assertEquals(unitPriceCents + 2_000L, summary.receivedCentsFor(PaymentMethod.CASH))
+        assertEquals(unitPriceCents + 2_000L, summary.totalReceivedCents)
+    }
 
-        val debtPaymentTotals = cashRegisterRepository.getDebtPaymentTotalsByMethod(sessionId)
-        assertEquals(1, debtPaymentTotals.size)
-        assertEquals(PaymentMethod.CASH, debtPaymentTotals.single().method)
-        assertEquals(2_000L, debtPaymentTotals.single().totalCents)
+    @Test
+    fun theOpeningBalanceIsExcludedFromTotalReceivedEvenWithDebtRepayments() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(openingBalanceCents = 10_000)
+        val debtId = openDebt(2_000)
+        debtRepository.registerPayment(debtId, amountCents = 500, method = PaymentMethod.CASH)
+
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertEquals(500L, summary.totalReceivedCents)
+        assertEquals(10_500L, summary.expectedCashCents)
+    }
+
+    @Test
+    fun aDebtsOriginalAmountIsNeverCountedOnlyActualRepayments() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(0)
+        openDebt(50_000) // A large debt is created — never paid during this session.
+
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertEquals(0L, summary.totalReceivedCents)
+        assertTrue(summary.totalsByMethod.isEmpty())
+    }
+
+    @Test
+    fun anUnpaidDebtDoesNotAppearInTheSummaryAtAll() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(0)
+        openDebt(3_000)
+
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertEquals(0L, summary.receivedCentsFor(PaymentMethod.CASH))
+    }
+
+    @Test
+    fun onlyThePartOfADebtThatWasActuallyRepaidIsCounted() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(0)
+        val debtId = openDebt(3_000)
+        debtRepository.registerPayment(debtId, amountCents = 1_000, method = PaymentMethod.CASH)
+        // 2,000 cents remain outstanding on the debt — must not appear anywhere in the summary.
+
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertEquals(1_000L, summary.totalReceivedCents)
+    }
+
+    @Test
+    fun debtRepaymentsFromAnotherSessionAreExcluded() = runBlocking {
+        val firstId = cashRegisterRepository.openSession(0)
+        val debtId = openDebt(5_000)
+        debtRepository.registerPayment(debtId, amountCents = 2_000, method = PaymentMethod.CASH)
+        cashRegisterRepository.closeSession(firstId, countedCashCents = 2_000)
+
+        val secondId = cashRegisterRepository.openSession(0)
+        val secondSummary = cashRegisterRepository.currentSummary(secondId)
+        assertEquals(0L, secondSummary.totalReceivedCents)
+    }
+
+    @Test
+    fun debtRepaymentsMadeWithNoSessionOpenAreExcludedFromAnyLaterSummary() = runBlocking {
+        val debtId = openDebt(5_000)
+        debtRepository.registerPayment(debtId, amountCents = 2_000, method = PaymentMethod.CASH) // No session open.
+
+        val sessionId = cashRegisterRepository.openSession(0)
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertEquals(0L, summary.totalReceivedCents)
+    }
+
+    @Test
+    fun closingTheSessionIncludesDebtRepaymentsInTheFinalSummary() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(openingBalanceCents = 0)
+        sell(PaymentMethod.CASH) // 400 cents.
+        val debtId = openDebt(2_000)
+        debtRepository.registerPayment(debtId, amountCents = 600, method = PaymentMethod.CASH)
+
+        val summary = cashRegisterRepository.closeSession(sessionId, countedCashCents = 1_000)
+
+        assertEquals(unitPriceCents + 600L, summary.expectedCashCents)
+        assertEquals(unitPriceCents + 600L, summary.totalReceivedCents)
+        assertEquals(1_000L - (unitPriceCents + 600L), summary.differenceCents)
+    }
+
+    @Test
+    fun closingAComandaAsFiadoNeverAffectsAnOpenCashSessionsSummary() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(openingBalanceCents = 1_000)
+        val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Mesa 4")
+        orderRepository.addComandaItem(orderId, productId, 5.0)
+
+        orderRepository.closeOrderAsFiado(orderId)
+
+        val summary = cashRegisterRepository.currentSummary(sessionId)
+        assertTrue(summary.totalsByMethod.isEmpty())
+        assertEquals(0L, summary.totalReceivedCents)
+        assertEquals(1_000L, summary.expectedCashCents)
+    }
+
+    @Test
+    fun reactiveDebtPaymentFlowEmitsANewRowAsSoonAsARepaymentIsRegistered() = runBlocking {
+        val sessionId = cashRegisterRepository.openSession(0)
+        assertTrue(cashRegisterRepository.observeDebtPaymentsForSession(sessionId).first().isEmpty())
+
+        val debtId = openDebt(2_000)
+        debtRepository.registerPayment(debtId, amountCents = 500, method = PaymentMethod.CASH)
+
+        val debtPayments = cashRegisterRepository.observeDebtPaymentsForSession(sessionId).first()
+        assertEquals(1, debtPayments.size)
+        assertEquals(500L, debtPayments.single().amountCents)
     }
 }

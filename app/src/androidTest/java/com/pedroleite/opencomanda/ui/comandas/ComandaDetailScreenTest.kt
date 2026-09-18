@@ -11,13 +11,14 @@ import androidx.compose.ui.test.performClick
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.compose.ui.test.assertIsEnabled
 import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.data.local.AppDatabase
-import com.pedroleite.opencomanda.data.local.entity.ProductEntity
 import com.pedroleite.opencomanda.data.repository.CategoryRepository
 import com.pedroleite.opencomanda.data.repository.CustomerRepository
 import com.pedroleite.opencomanda.data.repository.OrderRepository
 import com.pedroleite.opencomanda.data.repository.ProductRepository
+import com.pedroleite.opencomanda.domain.DebtStatus
 import com.pedroleite.opencomanda.domain.OrderStatus
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
@@ -48,6 +49,7 @@ class ComandaDetailScreenTest {
     private lateinit var customerRepository: CustomerRepository
     private var productId: Long = 0
     private var comandaId: Long = 0
+    private var customerId: Long = 0
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
@@ -91,6 +93,7 @@ class ComandaDetailScreenTest {
             initialStockQuantity = 0.0,
         )
         comandaId = orderRepository.createComanda(customerId = null, displayName = "Mesa 4")
+        customerId = customerRepository.create(name = "Joao", phone = null, notes = null)
     }
 
     @After
@@ -100,13 +103,18 @@ class ComandaDetailScreenTest {
 
     @Suppress("ViewModelConstructorInComposable")
     private fun setScreenContent(onBack: () -> Unit = {}) {
+        setScreenContentFor(comandaId, onBack = onBack)
+    }
+
+    @Suppress("ViewModelConstructorInComposable")
+    private fun setScreenContentFor(id: Long, onBack: () -> Unit = {}) {
         composeTestRule.setContent {
             OpenComandaTheme {
                 ComandaDetailScreen(
-                    comandaId = comandaId,
+                    comandaId = id,
                     onBack = onBack,
                     viewModel = ComandaDetailViewModel(
-                        comandaId, orderRepository, productRepository, categoryRepository, customerRepository,
+                        id, orderRepository, productRepository, categoryRepository, customerRepository,
                     ),
                 )
             }
@@ -327,5 +335,100 @@ class ComandaDetailScreenTest {
 
         composeTestRule.onNodeWithText(string(R.string.comanda_cancel_dialog_title)).assertDoesNotExist()
         assertEquals(OrderStatus.OPEN, database.orderDao().getById(comandaId)!!.status)
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Fiado
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun fiadoActionIsDisabledWhenTheComandaHasNoRegisteredCustomer() = runBlocking {
+        orderRepository.addComandaItem(comandaId, productId, 1.0) // Default comanda has customerId = null.
+        setScreenContent()
+        waitForText("Espetinho")
+
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
+        waitForText(string(R.string.comanda_detail_close_action))
+
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).assertIsNotEnabled()
+        composeTestRule.onNodeWithText(string(R.string.comanda_fiado_select_customer_hint)).assertExists()
+        Unit
+    }
+
+    @Test
+    fun fiadoActionIsEnabledWhenTheComandaHasARegisteredCustomer() = runBlocking {
+        val comandaWithCustomerId = orderRepository.createComanda(customerId = customerId, displayName = "Mesa 7")
+        orderRepository.addComandaItem(comandaWithCustomerId, productId, 1.0)
+
+        setScreenContentFor(comandaWithCustomerId)
+        waitForText("Espetinho")
+
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
+        waitForText(string(R.string.comanda_detail_close_action))
+
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).assertIsEnabled()
+        Unit
+    }
+
+    @Test
+    fun fiadoConfirmationShowsTheCustomerComandaAndTotal() = runBlocking {
+        val comandaWithCustomerId = orderRepository.createComanda(customerId = customerId, displayName = "Mesa 7")
+        orderRepository.addComandaItem(comandaWithCustomerId, productId, 2.0) // R$ 25,00
+
+        setScreenContentFor(comandaWithCustomerId)
+        waitForText("Espetinho")
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
+        waitForText(string(R.string.comanda_detail_close_action))
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).performClick()
+
+        waitForText(string(R.string.comanda_fiado_confirm_title))
+        composeTestRule.onNodeWithText("Joao").assertExists()
+        composeTestRule.onNodeWithText("Mesa 7").assertExists()
+        Unit
+    }
+
+    @Test
+    fun closingAsFiadoShowsSuccessAndCreatesADebtInsteadOfAPayment() = runBlocking {
+        val comandaWithCustomerId = orderRepository.createComanda(customerId = customerId, displayName = "Mesa 7")
+        orderRepository.addComandaItem(comandaWithCustomerId, productId, 1.0)
+
+        setScreenContentFor(comandaWithCustomerId)
+        waitForText("Espetinho")
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
+        waitForText(string(R.string.comanda_detail_close_action))
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).performClick()
+        waitForText(string(R.string.comanda_fiado_confirm_title))
+
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.CONFIRM_FIADO_BUTTON).performClick()
+
+        waitForText(string(R.string.comanda_fiado_closed_title))
+        composeTestRule.onNodeWithText(string(R.string.payment_method_cash)).assertDoesNotExist()
+
+        val order = database.orderDao().getById(comandaWithCustomerId)!!
+        assertEquals(OrderStatus.CLOSED, order.status)
+        assertTrue(database.paymentDao().getForOrder(comandaWithCustomerId).first().isEmpty())
+        val debts = database.debtDao().getForCustomer(customerId).first()
+        assertEquals(1, debts.size)
+        assertEquals(1250L, debts.single().originalAmountCents)
+        assertEquals(DebtStatus.OPEN, debts.single().status)
+    }
+
+    @Test
+    fun backFromFiadoConfirmationReturnsToClosingWithoutCreatingADebt() = runBlocking {
+        val comandaWithCustomerId = orderRepository.createComanda(customerId = customerId, displayName = "Mesa 7")
+        orderRepository.addComandaItem(comandaWithCustomerId, productId, 1.0)
+
+        setScreenContentFor(comandaWithCustomerId)
+        waitForText("Espetinho")
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
+        waitForText(string(R.string.comanda_detail_close_action))
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).performClick()
+        waitForText(string(R.string.comanda_fiado_confirm_title))
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
+
+        waitForText(string(R.string.comanda_detail_close_action))
+        assertEquals(OrderStatus.OPEN, database.orderDao().getById(comandaWithCustomerId)!!.status)
+        assertTrue(database.debtDao().getForCustomer(customerId).first().isEmpty())
     }
 }

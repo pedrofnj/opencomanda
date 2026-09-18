@@ -161,4 +161,41 @@
     <string name="cash_register_error_close_failed">Não foi possível fechar o caixa. Tente novamente.</string>
     <string name="cash_register_closed_summary_title">Caixa fechado</string>
     <string name="cash_register_closed_at_label">Fechado em %1$s</string>
+
+    <string name="comanda_or_divider">ou</string>
+    <string name="comanda_fiado_action">Anotar no fiado</string>
+    <string name="comanda_fiado_customer_required">Cliente obrigatório</string>
+    <string name="comanda_fiado_select_customer_hint">Selecione um cliente para usar fiado</string>
+    <string name="comanda_fiado_confirm_title">Confirmar fiado</string>
+    <string name="comanda_fiado_confirm_action">Confirmar fiado</string>
+    <string name="comanda_fiado_closed_title">Comanda anotada no fiado</string>
+
+    <string name="fiado_empty_title">Nenhum fiado em aberto</string>
+    <string name="fiado_empty_message">Quando uma comanda for fechada no fiado, ela aparecerá aqui.</string>
+    <string name="fiado_customer_open_amount">Em aberto: %1$s</string>
+    <string name="fiado_customer_debt_count">%1$s contas</string>
+
+    <string name="fiado_customer_total_open_label">Total em aberto</string>
+    <string name="fiado_customer_no_debts">Não há contas em aberto</string>
+    <string name="fiado_debt_original_label">Original: %1$s</string>
+    <string name="fiado_debt_paid_label">Pago: %1$s</string>
+    <string name="fiado_debt_remaining_label">Restante: %1$s</string>
+    <string name="fiado_debt_status_open">Em aberto</string>
+    <string name="fiado_debt_status_partial">Parcial</string>
+    <string name="fiado_debt_status_paid">Quitado</string>
+    <string name="fiado_register_payment_action">Registrar pagamento</string>
+    <string name="fiado_debt_not_found">Fiado não encontrado</string>
+
+    <string name="fiado_outstanding_amount_label">Valor em aberto</string>
+    <string name="fiado_payment_amount_label">Valor pago agora</string>
+    <string name="fiado_pay_all_action">Pagar tudo</string>
+    <string name="fiado_confirm_payment_action">Confirmar pagamento</string>
+    <string name="fiado_payment_registered_title">Pagamento registrado</string>
+    <string name="fiado_debt_settled_message">Fiado quitado</string>
+    <string name="fiado_payment_history_title">Histórico de pagamentos</string>
+    <string name="fiado_payment_history_empty">Nenhum pagamento registrado ainda</string>
+    <string name="fiado_error_zero_amount">Informe um valor maior que zero</string>
+    <string name="fiado_error_overpayment">Valor maior que o saldo em aberto</string>
+    <string name="fiado_error_payment_method_required">Selecione uma forma de pagamento</string>
+    <string name="fiado_error_payment_failed">Não foi possível registrar o pagamento. Tente novamente.</string>
 </resources>

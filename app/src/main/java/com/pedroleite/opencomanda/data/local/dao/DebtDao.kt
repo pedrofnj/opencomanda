@@ -19,6 +19,11 @@ interface DebtDao {
     @Query("SELECT * FROM debts WHERE id = :id")
     suspend fun getById(id: Long): DebtEntity?
 
+    /** Reactive single-debt lookup — used by the Debt detail screen so it picks up this same
+     *  debt's own later payments (status transitions) without a manual refetch. */
+    @Query("SELECT * FROM debts WHERE id = :id")
+    fun observeById(id: Long): Flow<DebtEntity?>
+
     @Query("SELECT * FROM debts WHERE customerId = :customerId ORDER BY createdAt DESC")
     fun getForCustomer(customerId: Long): Flow<List<DebtEntity>>
 

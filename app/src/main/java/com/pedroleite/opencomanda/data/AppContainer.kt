@@ -37,7 +37,7 @@ class AppContainer(context: Context) {
     }
 
     val debtRepository: DebtRepository by lazy {
-        DebtRepository(database, database.debtDao(), database.debtPaymentDao())
+        DebtRepository(database, database.debtDao(), database.debtPaymentDao(), database.cashSessionDao())
     }
 
     val cashRegisterRepository: CashRegisterRepository by lazy {

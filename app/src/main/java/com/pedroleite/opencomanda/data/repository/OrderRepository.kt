@@ -70,6 +70,10 @@ class OrderRepository(
      *  after the operator leaves and returns, or this same order is closed/cancelled. */
     fun getComanda(orderId: Long): Flow<OrderEntity?> = orderDao.observeById(orderId)
 
+    /** One-shot lookup of an order's display name (e.g. "Mesa 4") — used by the Fiado screens to
+     *  label a debt by the Comanda it came from without observing the whole order reactively. */
+    suspend fun getDisplayName(orderId: Long): String? = orderDao.getById(orderId)?.displayName
+
     fun getItemsForOrder(orderId: Long): Flow<List<OrderItemEntity>> =
         orderItemDao.getItemsForOrder(orderId)
 
@@ -219,10 +223,13 @@ class OrderRepository(
     /**
      * Closes an order as Fiado: creates a [DebtEntity] for the order's total instead of a
      * [PaymentEntity], since no money is received at this moment. Requires a known customer.
+     * Comanda-only — Quick Sale is always immediate payment (see [confirmQuickSale]'s own,
+     * separate `isFiado` path, which this never touches).
      */
     suspend fun closeOrderAsFiado(orderId: Long) {
         database.withTransaction {
             val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
+            check(order.orderType == OrderType.COMANDA) { "Fiado can only be recorded by closing a Comanda" }
             check(order.status == OrderStatus.OPEN) { "Order is not open" }
             val customerId = order.customerId ?: error("Fiado requires a customer on the order")
             val totalCents = orderItemDao.getOrderTotalCentsOnce(orderId)

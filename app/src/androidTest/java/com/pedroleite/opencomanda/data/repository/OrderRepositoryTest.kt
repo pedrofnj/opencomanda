@@ -103,11 +103,14 @@ class OrderRepositoryTest {
     fun closingAsFiadoCreatesADebtInsteadOfAPayment() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Joao")
         orderRepository.addComandaItem(orderId, productId, 4.0)
+        val before = System.currentTimeMillis()
 
         orderRepository.closeOrderAsFiado(orderId)
+        val after = System.currentTimeMillis()
 
         val order = database.orderDao().getById(orderId)!!
         assertEquals(OrderStatus.CLOSED, order.status)
+        assertTrue(order.closedAt != null && order.closedAt!! in before..after)
 
         val payments = database.paymentDao().getForOrder(orderId).first()
         assertTrue("Fiado must not create a Payment row", payments.isEmpty())
@@ -115,13 +118,116 @@ class OrderRepositoryTest {
         val debts = database.debtDao().getForCustomer(customerId).first()
         assertEquals(1, debts.size)
         assertEquals(4000L, debts.single().originalAmountCents)
+        assertEquals(orderId, debts.single().orderId)
+        assertEquals(customerId, debts.single().customerId)
         assertEquals(DebtStatus.OPEN, debts.single().status)
+    }
+
+    @Test
+    fun closingAsFiadoDoesNotMutateStockASecondTime() = runBlocking {
+        val trackedProductId = database.productDao().insert(
+            com.pedroleite.opencomanda.data.local.entity.ProductEntity(
+                name = "Cerveja",
+                priceCents = 800,
+                stockQuantity = 20.0,
+                trackStock = true,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+        val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Joao")
+        orderRepository.addComandaItem(orderId, trackedProductId, 3.0)
+        val stockAfterAdding = database.productDao().getById(trackedProductId)!!.stockQuantity
+
+        orderRepository.closeOrderAsFiado(orderId)
+
+        val stockAfterFiado = database.productDao().getById(trackedProductId)!!.stockQuantity
+        assertEquals(stockAfterAdding, stockAfterFiado, 0.0)
+        assertEquals(17.0, stockAfterFiado, 0.0)
     }
 
     @Test
     fun closingAsFiadoWithoutACustomerFails() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Balcao")
         orderRepository.addComandaItem(orderId, productId, 1.0)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.closeOrderAsFiado(orderId) }
+        }
+        Unit
+    }
+
+    @Test
+    fun closingAnEmptyComandaAsFiadoFails() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Joao")
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.closeOrderAsFiado(orderId) }
+        }
+        Unit
+    }
+
+    @Test
+    fun closingAnAlreadyClosedComandaAsFiadoFails() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Joao")
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+        orderRepository.closeOrderAsFiado(orderId)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.closeOrderAsFiado(orderId) }
+        }
+        // Exactly one debt — the duplicate attempt must not create a second one.
+        assertEquals(1, database.debtDao().getForCustomer(customerId).first().size)
+    }
+
+    @Test
+    fun closingAComandaClosedWithPaymentAsFiadoFails() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Joao")
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.closeOrderAsFiado(orderId) }
+        }
+        Unit
+    }
+
+    @Test
+    fun closingACancelledComandaAsFiadoFails() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Joao")
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+        orderRepository.cancelComanda(orderId)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.closeOrderAsFiado(orderId) }
+        }
+        Unit
+    }
+
+    @Test
+    fun aQuickSaleOrderCannotBeClosedAsFiadoThroughTheComandaPath() = runBlocking {
+        // confirmQuickSale creates and closes the order in the same transaction — this
+        // directly persists an OPEN Quick Sale row to exercise closeOrderAsFiado's own
+        // orderType guard, independent of the status guard the two paths share.
+        val now = System.currentTimeMillis()
+        val orderId = database.orderDao().insert(
+            com.pedroleite.opencomanda.data.local.entity.OrderEntity(
+                customerId = customerId,
+                orderType = OrderType.QUICK_SALE,
+                status = OrderStatus.OPEN,
+                openedAt = now,
+            ),
+        )
+        database.orderItemDao().insert(
+            com.pedroleite.opencomanda.data.local.entity.OrderItemEntity(
+                orderId = orderId,
+                productId = productId,
+                productNameSnapshot = "Espetinho",
+                unitPriceCentsSnapshot = 1000,
+                quantity = 1.0,
+                subtotalCents = 1000,
+            ),
+        )
 
         assertThrows(IllegalStateException::class.java) {
             runBlocking { orderRepository.closeOrderAsFiado(orderId) }
