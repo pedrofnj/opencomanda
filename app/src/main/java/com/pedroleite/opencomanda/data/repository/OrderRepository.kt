@@ -49,8 +49,17 @@ class OrderRepository(
     private val productDao: ProductDao,
 ) {
 
-    fun getOpenComandas(): Flow<List<OrderEntity>> =
-        orderDao.getByTypeAndStatus(OrderType.COMANDA, OrderStatus.OPEN)
+    /** Every currently OPEN Comanda, with its item count and total pre-aggregated for the Open
+     *  Comandas list. Never includes Quick Sales (a different [OrderType]) or CLOSED/CANCELLED
+     *  orders — closing or cancelling a Comanda removes it from this list automatically, since
+     *  it's a live Room query keyed on [OrderStatus.OPEN]. */
+    fun getOpenComandas(): Flow<List<OrderDao.ComandaSummary>> =
+        orderDao.getSummariesByTypeAndStatus(OrderType.COMANDA, OrderStatus.OPEN)
+
+    /** Reactive lookup for a single Comanda's own record (status, name, customer) — the detail
+     *  screen combines this with [getItemsForOrder] to reload everything from Room, including
+     *  after the operator leaves and returns, or this same order is closed/cancelled. */
+    fun getComanda(orderId: Long): Flow<OrderEntity?> = orderDao.observeById(orderId)
 
     fun getItemsForOrder(orderId: Long): Flow<List<OrderItemEntity>> =
         orderItemDao.getItemsForOrder(orderId)
@@ -58,12 +67,17 @@ class OrderRepository(
     /** Always derived from items (see [OrderEntity]'s doc) — never a stored/denormalized column. */
     fun getOrderTotalCents(orderId: Long): Flow<Long> = orderItemDao.getOrderTotalCents(orderId)
 
-    suspend fun createComanda(customerId: Long?, displayName: String?): Long {
+    /** Opens a new Comanda, persisted immediately (unlike Quick Sale's in-memory cart) so the
+     *  operator can leave and return to it later. [displayName] is required — a Comanda always
+     *  needs an identifying name ("Mesa 4", "João") to show in the Open Comandas list. */
+    suspend fun createComanda(customerId: Long?, displayName: String): Long {
+        val trimmedName = displayName.trim()
+        require(trimmedName.isNotEmpty()) { "Comanda name must not be blank" }
         val now = System.currentTimeMillis()
         return orderDao.insert(
             OrderEntity(
                 customerId = customerId,
-                displayName = displayName?.trim()?.ifBlank { null },
+                displayName = trimmedName,
                 orderType = OrderType.COMANDA,
                 status = OrderStatus.OPEN,
                 openedAt = now,
@@ -71,38 +85,102 @@ class OrderRepository(
         )
     }
 
-    suspend fun addItem(orderId: Long, product: ProductEntity, quantity: Double) {
+    /**
+     * Adds one product to an OPEN Comanda, reserving its stock immediately (the item has
+     * already been served) — atomically: the order's OPEN status, the product's existence,
+     * active state and tracked stock are all revalidated against the database's current state,
+     * exactly like [confirmQuickSale].
+     *
+     * If this Comanda already has a line for this product, [quantity] is added onto it rather
+     * than creating a second line — and that existing line's original price snapshot is kept
+     * as-is, even if the product's current price has since changed. Only a brand-new line
+     * snapshots the product's current name/price.
+     */
+    suspend fun addComandaItem(orderId: Long, productId: Long, quantity: Double = 1.0) {
+        require(quantity > 0) { "Quantity must be greater than zero" }
         database.withTransaction {
             val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
-            check(order.status == OrderStatus.OPEN) { "Cannot add items to a closed order" }
-            val subtotal = OrderTotalCalculator.itemSubtotal(Money(product.priceCents), quantity)
-            orderItemDao.insert(
-                OrderItemEntity(
-                    orderId = orderId,
-                    productId = product.id,
-                    productNameSnapshot = product.name,
-                    unitPriceCentsSnapshot = product.priceCents,
-                    quantity = quantity,
-                    subtotalCents = subtotal.minorUnits,
-                ),
-            )
+            check(order.status == OrderStatus.OPEN) { "Cannot add items to a non-open order" }
+
+            val fresh = productDao.getById(productId)
+            if (fresh == null || !fresh.active) {
+                throw ProductUnavailableException(productId, fresh?.name.orEmpty())
+            }
+            if (fresh.trackStock && fresh.stockQuantity < quantity) {
+                throw InsufficientStockException(fresh.id, fresh.name, fresh.stockQuantity, quantity)
+            }
+
+            val existing = orderItemDao.getByOrderAndProduct(orderId, productId)
+            if (existing != null) {
+                val newQuantity = existing.quantity + quantity
+                val subtotal = OrderTotalCalculator.itemSubtotal(Money(existing.unitPriceCentsSnapshot), newQuantity)
+                orderItemDao.update(existing.copy(quantity = newQuantity, subtotalCents = subtotal.minorUnits))
+            } else {
+                val subtotal = OrderTotalCalculator.itemSubtotal(Money(fresh.priceCents), quantity)
+                orderItemDao.insert(
+                    OrderItemEntity(
+                        orderId = orderId,
+                        productId = fresh.id,
+                        productNameSnapshot = fresh.name,
+                        unitPriceCentsSnapshot = fresh.priceCents,
+                        quantity = quantity,
+                        subtotalCents = subtotal.minorUnits,
+                    ),
+                )
+            }
+            if (fresh.trackStock) {
+                productDao.decrementStock(fresh.id, quantity, System.currentTimeMillis())
+            }
         }
     }
 
-    suspend fun updateItemQuantity(item: OrderItemEntity, newQuantity: Double) {
+    /**
+     * Removes one unit of [productId] from an OPEN Comanda's existing line, restoring its
+     * tracked stock — the mirror image of [addComandaItem]. Decrementing a line's last unit
+     * removes the line entirely rather than leaving a zero-quantity row. A no-op if there is no
+     * such line (defensive: the UI should never offer this action in that case).
+     */
+    suspend fun decrementComandaItem(orderId: Long, productId: Long) {
         database.withTransaction {
-            val order = orderDao.getById(item.orderId) ?: error("Order ${item.orderId} not found")
-            check(order.status == OrderStatus.OPEN) { "Cannot edit items on a closed order" }
-            val subtotal = OrderTotalCalculator.itemSubtotal(Money(item.unitPriceCentsSnapshot), newQuantity)
-            orderItemDao.update(item.copy(quantity = newQuantity, subtotalCents = subtotal.minorUnits))
+            val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
+            check(order.status == OrderStatus.OPEN) { "Cannot edit items on a non-open order" }
+
+            val existing = orderItemDao.getByOrderAndProduct(orderId, productId) ?: return@withTransaction
+            val newQuantity = existing.quantity - 1.0
+            if (newQuantity > 0.0) {
+                val subtotal = OrderTotalCalculator.itemSubtotal(Money(existing.unitPriceCentsSnapshot), newQuantity)
+                orderItemDao.update(existing.copy(quantity = newQuantity, subtotalCents = subtotal.minorUnits))
+            } else {
+                orderItemDao.delete(existing)
+            }
+
+            val product = productDao.getById(productId)
+            if (product != null && product.trackStock) {
+                productDao.incrementStock(productId, 1.0, System.currentTimeMillis())
+            }
         }
     }
 
-    suspend fun removeItem(item: OrderItemEntity) {
+    /**
+     * Cancels an OPEN Comanda: restores tracked stock for every item it currently holds, then
+     * marks it CANCELLED. Order and items are kept (never physically deleted) so the record
+     * remains inspectable; [OrderStatus.CANCELLED] makes it immutable the same way CLOSED does,
+     * since every mutation above only proceeds when `status == OPEN`.
+     */
+    suspend fun cancelComanda(orderId: Long) {
         database.withTransaction {
-            val order = orderDao.getById(item.orderId) ?: error("Order ${item.orderId} not found")
-            check(order.status == OrderStatus.OPEN) { "Cannot remove items from a closed order" }
-            orderItemDao.delete(item)
+            val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
+            check(order.status == OrderStatus.OPEN) { "Only an open comanda can be cancelled" }
+
+            val now = System.currentTimeMillis()
+            for (item in orderItemDao.getItemsForOrderOnce(orderId)) {
+                val productId = item.productId ?: continue
+                val product = productDao.getById(productId) ?: continue
+                if (product.trackStock) {
+                    productDao.incrementStock(productId, item.quantity, now)
+                }
+            }
+            orderDao.close(orderId, OrderStatus.CANCELLED, now)
         }
     }
 

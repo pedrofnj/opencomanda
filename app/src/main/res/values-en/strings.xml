@@ -109,4 +109,31 @@
     <string name="payment_method_credit">Credit</string>
     <string name="payment_method_pix">PIX</string>
     <string name="payment_method_other">Other</string>
+
+    <string name="comanda_new_title">New comanda</string>
+    <string name="comanda_field_name">Comanda name</string>
+    <string name="comanda_field_name_error">Enter the comanda name</string>
+    <string name="comanda_field_customer">Customer</string>
+    <string name="comanda_field_customer_none">No customer</string>
+    <string name="comanda_create_action">Open comanda</string>
+    <string name="comanda_create_error">Couldn\'t open the comanda. Please try again.</string>
+    <string name="comanda_list_empty_title">No open comandas</string>
+    <string name="comanda_list_empty_message">Create a comanda to start serving.</string>
+    <string name="comanda_list_empty_cta">New comanda</string>
+    <string name="comanda_item_count">%1$s items</string>
+    <string name="comanda_detail_add_products_action">Add products</string>
+    <string name="comanda_detail_items_title">Items</string>
+    <string name="comanda_detail_empty_items_title">Comanda is empty</string>
+    <string name="comanda_detail_empty_items_message">Add products to get started.</string>
+    <string name="comanda_detail_close_action">Close comanda</string>
+    <string name="comanda_not_found">Comanda not found</string>
+    <string name="comanda_cancel_action">Cancel comanda</string>
+    <string name="comanda_cancel_dialog_title">Cancel comanda?</string>
+    <string name="comanda_cancel_dialog_message">This cannot be undone. Reserved stock will be returned.</string>
+    <string name="comanda_cancel_dialog_confirm">Confirm cancellation</string>
+    <string name="comanda_cancel_dialog_dismiss">Keep comanda</string>
+    <string name="comanda_confirm_payment">Confirm payment</string>
+    <string name="comanda_closed_title">Comanda closed</string>
+    <string name="comanda_error_add_failed">Couldn\'t add the item. Please try again.</string>
+    <string name="comanda_error_close_failed">Couldn\'t close the comanda. Please try again.</string>
 </resources>

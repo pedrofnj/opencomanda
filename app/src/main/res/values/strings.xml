@@ -110,4 +110,31 @@
     <string name="payment_method_credit">Crédito</string>
     <string name="payment_method_pix">PIX</string>
     <string name="payment_method_other">Outro</string>
+
+    <string name="comanda_new_title">Nova comanda</string>
+    <string name="comanda_field_name">Nome da comanda</string>
+    <string name="comanda_field_name_error">Informe o nome da comanda</string>
+    <string name="comanda_field_customer">Cliente</string>
+    <string name="comanda_field_customer_none">Sem cliente</string>
+    <string name="comanda_create_action">Abrir comanda</string>
+    <string name="comanda_create_error">Não foi possível abrir a comanda. Tente novamente.</string>
+    <string name="comanda_list_empty_title">Nenhuma comanda aberta</string>
+    <string name="comanda_list_empty_message">Crie uma comanda para começar a atender.</string>
+    <string name="comanda_list_empty_cta">Nova comanda</string>
+    <string name="comanda_item_count">%1$s itens</string>
+    <string name="comanda_detail_add_products_action">Adicionar produtos</string>
+    <string name="comanda_detail_items_title">Itens</string>
+    <string name="comanda_detail_empty_items_title">Comanda vazia</string>
+    <string name="comanda_detail_empty_items_message">Adicione produtos para começar.</string>
+    <string name="comanda_detail_close_action">Fechar comanda</string>
+    <string name="comanda_not_found">Comanda não encontrada</string>
+    <string name="comanda_cancel_action">Cancelar comanda</string>
+    <string name="comanda_cancel_dialog_title">Cancelar comanda?</string>
+    <string name="comanda_cancel_dialog_message">Esta ação não pode ser desfeita. O estoque reservado será devolvido.</string>
+    <string name="comanda_cancel_dialog_confirm">Confirmar cancelamento</string>
+    <string name="comanda_cancel_dialog_dismiss">Manter comanda</string>
+    <string name="comanda_confirm_payment">Confirmar pagamento</string>
+    <string name="comanda_closed_title">Comanda fechada</string>
+    <string name="comanda_error_add_failed">Não foi possível adicionar o item. Tente novamente.</string>
+    <string name="comanda_error_close_failed">Não foi possível fechar a comanda. Tente novamente.</string>
 </resources>

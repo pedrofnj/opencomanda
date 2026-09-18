@@ -22,6 +22,18 @@ interface OrderItemDao {
     @Query("SELECT * FROM order_items WHERE orderId = :orderId ORDER BY id ASC")
     fun getItemsForOrder(orderId: Long): Flow<List<OrderItemEntity>>
 
+    /** Suspend, one-shot variant of [getItemsForOrder] — for use inside a transaction (e.g.
+     *  cancelling a Comanda, which must walk every item to restore its stock), where collecting
+     *  a Flow query is unnecessary and best avoided. */
+    @Query("SELECT * FROM order_items WHERE orderId = :orderId ORDER BY id ASC")
+    suspend fun getItemsForOrderOnce(orderId: Long): List<OrderItemEntity>
+
+    /** The existing line for this product within this order, if any — an open Comanda holds at
+     *  most one line per product, so adding more of the same product merges into it rather than
+     *  creating a duplicate row (see [com.pedroleite.opencomanda.data.repository.OrderRepository.addComandaItem]). */
+    @Query("SELECT * FROM order_items WHERE orderId = :orderId AND productId = :productId LIMIT 1")
+    suspend fun getByOrderAndProduct(orderId: Long, productId: Long): OrderItemEntity?
+
     @Query("SELECT COALESCE(SUM(subtotalCents), 0) FROM order_items WHERE orderId = :orderId")
     fun getOrderTotalCents(orderId: Long): Flow<Long>
 

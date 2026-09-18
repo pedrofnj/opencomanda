@@ -39,4 +39,11 @@ interface ProductDao {
         "UPDATE products SET stockQuantity = stockQuantity - :quantity, updatedAt = :updatedAt WHERE id = :id",
     )
     suspend fun decrementStock(id: Long, quantity: Double, updatedAt: Long)
+
+    /** Restores stock previously reserved by [decrementStock] — e.g. a Comanda item removed or
+     *  decreased before the Comanda closes, or a cancelled Comanda giving back everything it held. */
+    @Query(
+        "UPDATE products SET stockQuantity = stockQuantity + :quantity, updatedAt = :updatedAt WHERE id = :id",
+    )
+    suspend fun incrementStock(id: Long, quantity: Double, updatedAt: Long)
 }

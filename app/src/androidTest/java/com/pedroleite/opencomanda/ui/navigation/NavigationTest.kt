@@ -1,14 +1,19 @@
 package com.pedroleite.opencomanda.ui.navigation
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pedroleite.opencomanda.R
+import com.pedroleite.opencomanda.ui.comandas.NewComandaTestTags
+import com.pedroleite.opencomanda.ui.comandas.OpenComandasTestTags
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
 import org.junit.Rule
 import org.junit.Test
@@ -68,6 +73,51 @@ class NavigationTest {
         // placeholder text.
         composeTestRule.onNodeWithText(string(R.string.quicksale_empty_products_title)).assertExists()
         composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+    }
+
+    @Test
+    fun navigatingToNewComandaOpensTheRealScreenNotAPlaceholder() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_new_comanda), substring = true)
+            .performScrollTo()
+            .performClick()
+
+        // The real New Comanda screen shows its name field; it must never show the placeholder.
+        composeTestRule.onNodeWithText(string(R.string.comanda_field_name)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+    }
+
+    @Test
+    fun navigatingToOpenComandasOpensTheRealScreenNotAPlaceholder() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_open_comandas)).performScrollTo().performClick()
+
+        // The real Open Comandas screen always shows its "new comanda" FAB, empty or not; it
+        // must never show the placeholder. (Not asserting the empty state itself here: this
+        // real, app-container-backed database is shared with other tests in this class, such as
+        // the one that creates a Comanda, so it isn't guaranteed to be empty at this point.)
+        composeTestRule.onNodeWithTag(OpenComandasTestTags.CREATE_FAB).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+    }
+
+    @Test
+    fun creatingAComandaFromHomeNavigatesStraightToItsDetailScreen() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_new_comanda), substring = true)
+            .performScrollTo()
+            .performClick()
+        composeTestRule.onNodeWithTag(NewComandaTestTags.NAME_FIELD).performTextInput("Mesa 4")
+        composeTestRule.onNodeWithTag(NewComandaTestTags.CREATE_BUTTON).performClick()
+
+        // Landed on the detail screen for the comanda just created — its name is now the
+        // top-bar title, and the creation form's fields are gone.
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText("Mesa 4").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithText(string(R.string.comanda_field_name)).assertDoesNotExist()
     }
 
     @Test

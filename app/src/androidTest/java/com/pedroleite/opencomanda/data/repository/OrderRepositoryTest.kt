@@ -65,7 +65,7 @@ class OrderRepositoryTest {
     @Test
     fun comandaTotalReflectsAddedItems() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 3")
-        orderRepository.addItem(orderId, product(), 3.0)
+        orderRepository.addComandaItem(orderId, productId, 3.0)
 
         val total = orderRepository.getOrderTotalCents(orderId).first()
         assertEquals(3000L, total)
@@ -74,11 +74,11 @@ class OrderRepositoryTest {
     @Test
     fun cannotAddItemsToAClosedOrder() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 1")
-        orderRepository.addItem(orderId, product(), 1.0)
+        orderRepository.addComandaItem(orderId, productId, 1.0)
         orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null)
 
         assertThrows(IllegalStateException::class.java) {
-            runBlocking { orderRepository.addItem(orderId, product(), 1.0) }
+            runBlocking { orderRepository.addComandaItem(orderId, productId, 1.0) }
         }
         Unit
     }
@@ -86,7 +86,7 @@ class OrderRepositoryTest {
     @Test
     fun closingWithPaymentCreatesAPaymentAndClosesTheOrder() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 2")
-        orderRepository.addItem(orderId, product(), 2.0)
+        orderRepository.addComandaItem(orderId, productId, 2.0)
 
         orderRepository.closeOrderWithPayment(orderId, PaymentMethod.PIX, cashSessionId = null)
 
@@ -100,8 +100,8 @@ class OrderRepositoryTest {
 
     @Test
     fun closingAsFiadoCreatesADebtInsteadOfAPayment() = runBlocking {
-        val orderId = orderRepository.createComanda(customerId = customerId, displayName = null)
-        orderRepository.addItem(orderId, product(), 4.0)
+        val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Joao")
+        orderRepository.addComandaItem(orderId, productId, 4.0)
 
         orderRepository.closeOrderAsFiado(orderId)
 
@@ -120,10 +120,274 @@ class OrderRepositoryTest {
     @Test
     fun closingAsFiadoWithoutACustomerFails() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Balcao")
-        orderRepository.addItem(orderId, product(), 1.0)
+        orderRepository.addComandaItem(orderId, productId, 1.0)
 
         assertThrows(IllegalStateException::class.java) {
             runBlocking { orderRepository.closeOrderAsFiado(orderId) }
+        }
+        Unit
+    }
+
+    @Test
+    fun createComandaProducesAnOpenComandaOrder() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 5")
+
+        val order = database.orderDao().getById(orderId)!!
+        assertEquals(OrderType.COMANDA, order.orderType)
+        assertEquals(OrderStatus.OPEN, order.status)
+        assertEquals("Mesa 5", order.displayName)
+        assertEquals(null, order.closedAt)
+    }
+
+    @Test
+    fun createComandaRejectsABlankName() = runBlocking {
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { orderRepository.createComanda(customerId = null, displayName = "   ") }
+        }
+        Unit
+    }
+
+    @Test
+    fun createComandaTrimsTheName() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "  Mesa 7  ")
+        assertEquals("Mesa 7", database.orderDao().getById(orderId)!!.displayName)
+    }
+
+    @Test
+    fun createComandaAcceptsAnOptionalActiveCustomer() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = customerId, displayName = "Joao")
+        assertEquals(customerId, database.orderDao().getById(orderId)!!.customerId)
+    }
+
+    @Test
+    fun openComandasListsOnlyOpenComandasNotQuickSales() = runBlocking {
+        val comandaId = orderRepository.createComanda(customerId = null, displayName = "Mesa 8")
+        orderRepository.confirmQuickSale(
+            lines = listOf(CartLine(productId, 1.0)),
+            method = PaymentMethod.CASH,
+            isFiado = false,
+            customerId = null,
+            cashSessionId = null,
+        )
+
+        val openComandas = orderRepository.getOpenComandas().first()
+        assertEquals(1, openComandas.size)
+        assertEquals(comandaId, openComandas.single().order.id)
+    }
+
+    @Test
+    fun addComandaItemSnapshotsNameAndPrice() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 9")
+        orderRepository.addComandaItem(orderId, productId, 2.0)
+
+        val item = database.orderItemDao().getItemsForOrder(orderId).first().single()
+        assertEquals("Espetinho", item.productNameSnapshot)
+        assertEquals(1000L, item.unitPriceCentsSnapshot)
+        assertEquals(2000L, item.subtotalCents)
+    }
+
+    @Test
+    fun addingTheSameProductAgainMergesIntoTheExistingLine() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 10")
+        orderRepository.addComandaItem(orderId, productId, 2.0)
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+
+        val items = database.orderItemDao().getItemsForOrder(orderId).first()
+        assertEquals(1, items.size)
+        assertEquals(3.0, items.single().quantity, 0.0001)
+        assertEquals(3000L, items.single().subtotalCents)
+    }
+
+    @Test
+    fun aPriceChangeDoesNotAlterAnExistingComandaLineSnapshot() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 11")
+        orderRepository.addComandaItem(orderId, productId, 1.0) // snapshots priceCents = 1000
+
+        productRepository().update(product().copy(priceCents = 1500))
+        orderRepository.addComandaItem(orderId, productId, 1.0) // must keep the original 1000 snapshot
+
+        val item = database.orderItemDao().getItemsForOrder(orderId).first().single()
+        assertEquals(1000L, item.unitPriceCentsSnapshot)
+        assertEquals(2.0, item.quantity, 0.0001)
+        assertEquals(2000L, item.subtotalCents)
+    }
+
+    @Test
+    fun addComandaItemDecrementsTrackedStockAndLeavesUntrackedStockAlone() = runBlocking {
+        val now = System.currentTimeMillis()
+        val trackedId = database.productDao().insert(
+            ProductEntity(name = "Cerveja", priceCents = 800, trackStock = true, stockQuantity = 10.0, createdAt = now, updatedAt = now),
+        )
+        val untrackedId = database.productDao().insert(
+            ProductEntity(name = "Agua", priceCents = 300, trackStock = false, stockQuantity = 0.0, createdAt = now, updatedAt = now),
+        )
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 12")
+
+        orderRepository.addComandaItem(orderId, trackedId, 2.0)
+        orderRepository.addComandaItem(orderId, untrackedId, 5.0)
+
+        assertEquals(8.0, database.productDao().getById(trackedId)!!.stockQuantity, 0.0001)
+        assertEquals(0.0, database.productDao().getById(untrackedId)!!.stockQuantity, 0.0001)
+    }
+
+    @Test
+    fun decrementingAComandaItemRestoresTrackedStock() = runBlocking {
+        val now = System.currentTimeMillis()
+        val trackedId = database.productDao().insert(
+            ProductEntity(name = "Cerveja", priceCents = 800, trackStock = true, stockQuantity = 10.0, createdAt = now, updatedAt = now),
+        )
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 13")
+        orderRepository.addComandaItem(orderId, trackedId, 2.0) // stock 10 -> 8
+
+        orderRepository.decrementComandaItem(orderId, trackedId) // stock 8 -> 9
+
+        assertEquals(9.0, database.productDao().getById(trackedId)!!.stockQuantity, 0.0001)
+        assertEquals(1.0, database.orderItemDao().getItemsForOrder(orderId).first().single().quantity, 0.0001)
+    }
+
+    @Test
+    fun decrementingAComandaItemsLastUnitRemovesTheLineAndRestoresItsStock() = runBlocking {
+        val now = System.currentTimeMillis()
+        val trackedId = database.productDao().insert(
+            ProductEntity(name = "Cerveja", priceCents = 800, trackStock = true, stockQuantity = 10.0, createdAt = now, updatedAt = now),
+        )
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 14")
+        orderRepository.addComandaItem(orderId, trackedId, 1.0) // stock 10 -> 9
+
+        orderRepository.decrementComandaItem(orderId, trackedId) // removes the line, stock 9 -> 10
+
+        assertTrue(database.orderItemDao().getItemsForOrder(orderId).first().isEmpty())
+        assertEquals(10.0, database.productDao().getById(trackedId)!!.stockQuantity, 0.0001)
+    }
+
+    @Test
+    fun addComandaItemRejectsInsufficientStockAndChangesNothing() = runBlocking {
+        val now = System.currentTimeMillis()
+        val trackedId = database.productDao().insert(
+            ProductEntity(name = "Cerveja", priceCents = 800, trackStock = true, stockQuantity = 2.0, createdAt = now, updatedAt = now),
+        )
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 15")
+
+        assertThrows(InsufficientStockException::class.java) {
+            runBlocking { orderRepository.addComandaItem(orderId, trackedId, 3.0) }
+        }
+
+        assertEquals(2.0, database.productDao().getById(trackedId)!!.stockQuantity, 0.0001)
+        assertTrue(database.orderItemDao().getItemsForOrder(orderId).first().isEmpty())
+    }
+
+    @Test
+    fun addComandaItemRejectsAnInactiveProductSafely() = runBlocking {
+        database.productDao().setActive(productId, false, System.currentTimeMillis())
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 16")
+
+        assertThrows(ProductUnavailableException::class.java) {
+            runBlocking { orderRepository.addComandaItem(orderId, productId, 1.0) }
+        }
+        assertTrue(database.orderItemDao().getItemsForOrder(orderId).first().isEmpty())
+    }
+
+    @Test
+    fun cannotDecrementItemsOnAClosedOrder() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 17")
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.decrementComandaItem(orderId, productId) }
+        }
+        Unit
+    }
+
+    @Test
+    fun cannotAddItemsToACancelledComanda() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 18")
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+        orderRepository.cancelComanda(orderId)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.addComandaItem(orderId, productId, 1.0) }
+        }
+        Unit
+    }
+
+    @Test
+    fun closingAComandaWithNoItemsIsRejected() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 19")
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null) }
+        }
+        Unit
+    }
+
+    @Test
+    fun closingAComandaSetsClosedAtAndRemovesItFromTheOpenList() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 20")
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null)
+
+        val order = database.orderDao().getById(orderId)!!
+        assertTrue(order.closedAt != null)
+        assertTrue(orderRepository.getOpenComandas().first().none { it.order.id == orderId })
+    }
+
+    @Test
+    fun comandaPaymentAmountIsCalculatedFromPersistedItemsNotATrustedTotal() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 21")
+        orderRepository.addComandaItem(orderId, productId, 2.0)
+
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.PIX, cashSessionId = null)
+
+        val payment = database.paymentDao().getForOrder(orderId).first().single()
+        val itemsTotal = database.orderItemDao().getOrderTotalCentsOnce(orderId)
+        assertEquals(itemsTotal, payment.amountCents)
+    }
+
+    @Test
+    fun closingAComandaTwiceIsRejectedAndNeverCreatesASecondPayment() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 22")
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null) }
+        }
+
+        assertEquals(1, database.paymentDao().getForOrder(orderId).first().size)
+    }
+
+    @Test
+    fun cancellingAComandaRestoresTrackedStockAndCreatesNoPayment() = runBlocking {
+        val now = System.currentTimeMillis()
+        val trackedId = database.productDao().insert(
+            ProductEntity(name = "Cerveja", priceCents = 800, trackStock = true, stockQuantity = 10.0, createdAt = now, updatedAt = now),
+        )
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 23")
+        orderRepository.addComandaItem(orderId, trackedId, 3.0) // stock 10 -> 7
+        orderRepository.addComandaItem(orderId, productId, 1.0) // untracked-by-comparison second line
+
+        orderRepository.cancelComanda(orderId)
+
+        val order = database.orderDao().getById(orderId)!!
+        assertEquals(OrderStatus.CANCELLED, order.status)
+        assertTrue(order.closedAt != null)
+        assertEquals(10.0, database.productDao().getById(trackedId)!!.stockQuantity, 0.0001)
+        assertTrue("Cancelling must not create a Payment", database.paymentDao().getForOrder(orderId).first().isEmpty())
+        // Items are kept, not physically deleted.
+        assertEquals(2, database.orderItemDao().getItemsForOrder(orderId).first().size)
+        assertTrue(orderRepository.getOpenComandas().first().none { it.order.id == orderId })
+    }
+
+    @Test
+    fun cancellingAComandaTwiceIsRejected() = runBlocking {
+        val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 24")
+        orderRepository.addComandaItem(orderId, productId, 1.0)
+        orderRepository.cancelComanda(orderId)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.cancelComanda(orderId) }
         }
         Unit
     }

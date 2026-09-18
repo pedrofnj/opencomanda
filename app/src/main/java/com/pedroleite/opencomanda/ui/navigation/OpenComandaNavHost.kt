@@ -9,6 +9,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pedroleite.opencomanda.R
+import com.pedroleite.opencomanda.ui.comandas.ComandaDetailScreen
+import com.pedroleite.opencomanda.ui.comandas.NewComandaScreen
+import com.pedroleite.opencomanda.ui.comandas.OpenComandasScreen
 import com.pedroleite.opencomanda.ui.components.PlaceholderScreen
 import com.pedroleite.opencomanda.ui.customers.CustomerFormScreen
 import com.pedroleite.opencomanda.ui.customers.CustomerListScreen
@@ -36,16 +39,33 @@ fun OpenComandaNavHost(navController: NavHostController = rememberNavController(
             )
         }
         composable(Destination.NewComanda.route) {
-            PlaceholderScreen(
-                title = stringResource(R.string.action_new_comanda),
+            NewComandaScreen(
                 onBack = { navController.popBackStack() },
+                onCreated = { comandaId ->
+                    navController.navigate(Destination.ComandaDetail.createRoute(comandaId)) {
+                        popUpTo(Destination.NewComanda.route) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Destination.OpenComandas.route) {
-            PlaceholderScreen(
-                title = stringResource(R.string.action_open_comandas),
+            OpenComandasScreen(
                 onBack = { navController.popBackStack() },
+                onCreateComanda = { navController.navigate(Destination.NewComanda.route) },
+                onOpenComanda = { comandaId -> navController.navigate(Destination.ComandaDetail.createRoute(comandaId)) },
             )
+        }
+        composable(
+            route = Destination.ComandaDetail.route,
+            arguments = listOf(navArgument(Destination.ComandaDetail.ARG_COMANDA_ID) { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val comandaId = backStackEntry.arguments?.getLong(Destination.ComandaDetail.ARG_COMANDA_ID)
+            if (comandaId != null) {
+                ComandaDetailScreen(
+                    comandaId = comandaId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
         }
         composable(Destination.Products.route) {
             ProductListScreen(
