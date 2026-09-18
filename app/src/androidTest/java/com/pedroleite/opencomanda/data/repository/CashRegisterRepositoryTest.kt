@@ -91,9 +91,8 @@ class CashRegisterRepositoryTest {
         val sessionId = cashRegisterRepository.openSession(openingBalanceCents = 0)
 
         // A regular cash sale of R$ 4,00.
-        val product = database.productDao().getById(productId)!!
         orderRepository.confirmQuickSale(
-            lines = listOf(CartLine(product, 1.0)),
+            lines = listOf(CartLine(productId, 1.0)),
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
@@ -102,7 +101,7 @@ class CashRegisterRepositoryTest {
 
         // A Fiado sale of R$ 4,00 for the same product — must NOT appear in sales totals.
         orderRepository.confirmQuickSale(
-            lines = listOf(CartLine(product, 1.0)),
+            lines = listOf(CartLine(productId, 1.0)),
             method = null,
             isFiado = true,
             customerId = customerId,

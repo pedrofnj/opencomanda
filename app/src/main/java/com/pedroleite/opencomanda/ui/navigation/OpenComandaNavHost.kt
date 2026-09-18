@@ -16,6 +16,7 @@ import com.pedroleite.opencomanda.ui.home.HomeScreen
 import com.pedroleite.opencomanda.ui.products.CategoryManagementScreen
 import com.pedroleite.opencomanda.ui.products.ProductFormScreen
 import com.pedroleite.opencomanda.ui.products.ProductListScreen
+import com.pedroleite.opencomanda.ui.quicksale.QuickSaleScreen
 
 /**
  * OpenComanda's top-level navigation graph. Every non-Home destination is wired to a
@@ -29,9 +30,9 @@ fun OpenComandaNavHost(navController: NavHostController = rememberNavController(
             HomeScreen(onNavigate = { destination -> navController.navigate(destination.route) })
         }
         composable(Destination.QuickSale.route) {
-            PlaceholderScreen(
-                title = stringResource(R.string.action_quick_sale),
+            QuickSaleScreen(
                 onBack = { navController.popBackStack() },
+                onGoToProducts = { navController.navigate(Destination.Products.route) },
             )
         }
         composable(Destination.NewComanda.route) {

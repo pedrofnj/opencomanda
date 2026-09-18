@@ -8,6 +8,7 @@ import com.pedroleite.opencomanda.data.local.entity.CustomerEntity
 import com.pedroleite.opencomanda.data.local.entity.ProductEntity
 import com.pedroleite.opencomanda.domain.DebtStatus
 import com.pedroleite.opencomanda.domain.OrderStatus
+import com.pedroleite.opencomanda.domain.OrderType
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -143,7 +144,7 @@ class OrderRepositoryTest {
         val trackedProduct = database.productDao().getById(trackedProductId)!!
 
         val orderId = orderRepository.confirmQuickSale(
-            lines = listOf(CartLine(trackedProduct, 2.0)),
+            lines = listOf(CartLine(trackedProduct.id, 2.0)),
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
@@ -169,7 +170,7 @@ class OrderRepositoryTest {
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking {
                 orderRepository.confirmQuickSale(
-                    lines = listOf(CartLine(product(), 1.0)),
+                    lines = listOf(CartLine(product().id, 1.0)),
                     method = null,
                     isFiado = true,
                     customerId = null,
@@ -198,12 +199,12 @@ class OrderRepositoryTest {
 
     @Test
     fun confirmQuickSaleRollsBackCompletelyWhenAnItemIsInvalid() = runBlocking {
-        val invalidLine = CartLine(product(), quantity = 0.0) // itemSubtotal() rejects quantity <= 0
+        val invalidLine = CartLine(product().id, quantity = 0.0) // itemSubtotal() rejects quantity <= 0
 
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking {
                 orderRepository.confirmQuickSale(
-                    lines = listOf(CartLine(product(), 1.0), invalidLine),
+                    lines = listOf(CartLine(product().id, 1.0), invalidLine),
                     method = PaymentMethod.CASH,
                     isFiado = false,
                     customerId = null,
@@ -219,4 +220,195 @@ class OrderRepositoryTest {
         cursor.close()
         assertEquals(0, orderCount)
     }
+
+    @Test
+    fun confirmQuickSaleDecrementsMultipleTrackedProducts() = runBlocking {
+        val now = System.currentTimeMillis()
+        val espetinhoId = database.productDao().insert(
+            ProductEntity(
+                name = "Espetinho",
+                priceCents = 1250,
+                trackStock = true,
+                stockQuantity = 10.0,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        val cocaId = database.productDao().insert(
+            ProductEntity(
+                name = "Coca-Cola",
+                priceCents = 600,
+                trackStock = true,
+                stockQuantity = 5.0,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+
+        orderRepository.confirmQuickSale(
+            lines = listOf(
+                CartLine(espetinhoId, 2.0),
+                CartLine(cocaId, 1.0),
+            ),
+            method = PaymentMethod.CASH,
+            isFiado = false,
+            customerId = null,
+            cashSessionId = null,
+        )
+
+        assertEquals(8.0, database.productDao().getById(espetinhoId)!!.stockQuantity, 0.0001)
+        assertEquals(4.0, database.productDao().getById(cocaId)!!.stockQuantity, 0.0001)
+    }
+
+    @Test
+    fun confirmQuickSaleDoesNotChangeStockForUntrackedProducts() = runBlocking {
+        val now = System.currentTimeMillis()
+        val untrackedId = database.productDao().insert(
+            ProductEntity(
+                name = "Agua",
+                priceCents = 300,
+                trackStock = false,
+                stockQuantity = 0.0,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+
+        orderRepository.confirmQuickSale(
+            lines = listOf(CartLine(untrackedId, 5.0)),
+            method = PaymentMethod.CASH,
+            isFiado = false,
+            customerId = null,
+            cashSessionId = null,
+        )
+
+        assertEquals(0.0, database.productDao().getById(untrackedId)!!.stockQuantity, 0.0001)
+    }
+
+    @Test
+    fun confirmQuickSaleRejectsInsufficientStockAndPersistsNothing() = runBlocking {
+        val now = System.currentTimeMillis()
+        val trackedId = database.productDao().insert(
+            ProductEntity(
+                name = "Coca-Cola",
+                priceCents = 600,
+                trackStock = true,
+                stockQuantity = 2.0,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        val trackedProduct = database.productDao().getById(trackedId)!!
+
+        assertThrows(InsufficientStockException::class.java) {
+            runBlocking {
+                orderRepository.confirmQuickSale(
+                    lines = listOf(CartLine(trackedProduct.id, 3.0)),
+                    method = PaymentMethod.CASH,
+                    isFiado = false,
+                    customerId = null,
+                    cashSessionId = null,
+                )
+            }
+        }
+
+        // Nothing persisted, and stock is untouched.
+        assertEquals(2.0, database.productDao().getById(trackedId)!!.stockQuantity, 0.0001)
+        assertTrue(database.orderDao().getByTypeAndStatus(OrderType.QUICK_SALE, OrderStatus.CLOSED).first().isEmpty())
+        val orderCursor = database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM orders")
+        orderCursor.moveToFirst()
+        assertEquals(0, orderCursor.getInt(0))
+        orderCursor.close()
+        val paymentCursor = database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM payments")
+        paymentCursor.moveToFirst()
+        assertEquals(0, paymentCursor.getInt(0))
+        paymentCursor.close()
+    }
+
+    @Test
+    fun confirmQuickSaleFailsSafelyWhenAProductWasDeactivatedAfterTheCartWasBuilt() = runBlocking {
+        val staleProduct = product()
+        database.productDao().setActive(productId, false, System.currentTimeMillis())
+
+        assertThrows(ProductUnavailableException::class.java) {
+            runBlocking {
+                orderRepository.confirmQuickSale(
+                    lines = listOf(CartLine(staleProduct.id, 1.0)),
+                    method = PaymentMethod.CASH,
+                    isFiado = false,
+                    customerId = null,
+                    cashSessionId = null,
+                )
+            }
+        }
+
+        val cursor = database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM orders")
+        cursor.moveToFirst()
+        assertEquals(0, cursor.getInt(0))
+        cursor.close()
+    }
+
+    @Test
+    fun confirmQuickSaleUsesTheCurrentPriceAtConfirmationNotAStaleCartSnapshot() = runBlocking {
+        val staleProduct = product() // priceCents = 1000, captured before the price change below
+        productRepository().update(staleProduct.copy(priceCents = 1500))
+
+        val orderId = orderRepository.confirmQuickSale(
+            lines = listOf(CartLine(staleProduct.id, 1.0)),
+            method = PaymentMethod.CASH,
+            isFiado = false,
+            customerId = null,
+            cashSessionId = null,
+        )
+
+        val item = database.orderItemDao().getItemsForOrder(orderId).first().single()
+        assertEquals(1500L, item.unitPriceCentsSnapshot)
+        assertEquals(1500L, item.subtotalCents)
+    }
+
+    @Test
+    fun confirmQuickSalePaymentAmountEqualsTheSaleTotal() = runBlocking {
+        val orderId = orderRepository.confirmQuickSale(
+            lines = listOf(CartLine(product().id, 3.0)),
+            method = PaymentMethod.PIX,
+            isFiado = false,
+            customerId = null,
+            cashSessionId = null,
+        )
+
+        val payment = database.paymentDao().getForOrder(orderId).first().single()
+        val itemsTotal = database.orderItemDao().getOrderTotalCentsOnce(orderId)
+        assertEquals(itemsTotal, payment.amountCents)
+        assertEquals(PaymentMethod.PIX, payment.method)
+    }
+
+    @Test
+    fun confirmQuickSaleDoesNotRequireACustomer() = runBlocking {
+        val orderId = orderRepository.confirmQuickSale(
+            lines = listOf(CartLine(product().id, 1.0)),
+            method = PaymentMethod.CASH,
+            isFiado = false,
+            customerId = null,
+            cashSessionId = null,
+        )
+
+        val order = database.orderDao().getById(orderId)!!
+        assertEquals(null, order.customerId)
+    }
+
+    @Test
+    fun confirmQuickSalePersistsWithoutACashSessionWhenNoneIsProvided() = runBlocking {
+        val orderId = orderRepository.confirmQuickSale(
+            lines = listOf(CartLine(product().id, 1.0)),
+            method = PaymentMethod.CASH,
+            isFiado = false,
+            customerId = null,
+            cashSessionId = null,
+        )
+
+        val payment = database.paymentDao().getForOrder(orderId).first().single()
+        assertEquals(null, payment.cashSessionId)
+    }
+
+    private fun productRepository() = ProductRepository(database.productDao())
 }

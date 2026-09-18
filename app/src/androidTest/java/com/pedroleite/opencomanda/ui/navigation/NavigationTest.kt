@@ -57,6 +57,20 @@ class NavigationTest {
     }
 
     @Test
+    fun navigatingToQuickSaleOpensTheRealScreenNotAPlaceholder() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true)
+            .performScrollTo()
+            .performClick()
+
+        // The real Quick Sale screen shows its empty-products copy; it must never show the
+        // placeholder text.
+        composeTestRule.onNodeWithText(string(R.string.quicksale_empty_products_title)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+    }
+
+    @Test
     fun navigatingToProductsOpensTheRealProductsScreenNotAPlaceholder() {
         setNavHostContent()
 

@@ -80,4 +80,33 @@
     <string name="customer_filter_active">Activos</string>
     <string name="customer_filter_inactive">Inactivos</string>
     <string name="customer_list_no_results">Ningún cliente encontrado</string>
+
+    <string name="quicksale_empty_products_title">Ningún producto disponible</string>
+    <string name="quicksale_empty_products_message">Registra productos activos para empezar a vender.</string>
+    <string name="quicksale_empty_products_cta">Ir a Productos</string>
+    <string name="quicksale_add_action">Agregar %1$s</string>
+    <string name="quicksale_increase_quantity">Aumentar cantidad de %1$s</string>
+    <string name="quicksale_decrease_quantity">Disminuir cantidad de %1$s</string>
+    <string name="quicksale_quantity_label">Cantidad de %1$s: %2$s</string>
+    <string name="quicksale_total_label">Total</string>
+    <string name="quicksale_continue_sale">Continuar venta</string>
+    <string name="quicksale_review_title">Confirmar venta</string>
+    <string name="quicksale_payment_method_label">Forma de pago</string>
+    <string name="quicksale_confirm_sale">Confirmar venta</string>
+    <string name="quicksale_sale_completed">Venta completada</string>
+    <string name="quicksale_new_sale">Nueva venta</string>
+    <string name="quicksale_done">Listo</string>
+    <string name="quicksale_discard_sale_title">¿Descartar venta?</string>
+    <string name="quicksale_discard_sale_message">Hay artículos en el carrito. Si sales ahora, se perderá la venta en curso.</string>
+    <string name="quicksale_discard_action">Descartar</string>
+    <string name="quicksale_keep_selling_action">Seguir vendiendo</string>
+    <string name="quicksale_error_insufficient_stock">Existencia insuficiente de %1$s. Disponible: %2$s</string>
+    <string name="quicksale_error_product_unavailable">%1$s ya no está disponible</string>
+    <string name="quicksale_error_save_failed">No se pudo completar la venta. Inténtalo de nuevo.</string>
+
+    <string name="payment_method_cash">Efectivo</string>
+    <string name="payment_method_debit">Débito</string>
+    <string name="payment_method_credit">Crédito</string>
+    <string name="payment_method_pix">PIX</string>
+    <string name="payment_method_other">Otro</string>
 </resources>

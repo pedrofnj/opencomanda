@@ -20,8 +20,25 @@ import com.pedroleite.opencomanda.domain.OrderType
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import kotlinx.coroutines.flow.Flow
 
-/** A single requested line when confirming a Quick Sale. */
-data class CartLine(val product: ProductEntity, val quantity: Double)
+/** A single requested line when confirming a Quick Sale. Deliberately just an id + quantity,
+ *  not a [ProductEntity] snapshot: [OrderRepository.confirmQuickSale] re-reads the real row by
+ *  [productId] and revalidates it before trusting anything about it (name, price, stock), so a
+ *  richer snapshot here would only invite accidentally trusting stale cart-time data. */
+data class CartLine(val productId: Long, val quantity: Double)
+
+/** Thrown when confirming a Quick Sale would take a tracked product's stock below zero. */
+class InsufficientStockException(
+    val productId: Long,
+    val productName: String,
+    val availableQuantity: Double,
+    val requestedQuantity: Double,
+) : RuntimeException("Insufficient stock for product $productId: available=$availableQuantity requested=$requestedQuantity")
+
+/** Thrown when a cart line references a product that no longer exists or is no longer active. */
+class ProductUnavailableException(
+    val productId: Long,
+    val productName: String,
+) : RuntimeException("Product $productId ($productName) is not available")
 
 class OrderRepository(
     private val database: AppDatabase,
@@ -139,6 +156,11 @@ class OrderRepository(
      * Confirms a Quick Sale atomically: creates the order (already closed), its items, and
      * either a payment or a Fiado debt, plus stock movement for tracked products — all in a
      * single transaction. If any step fails, nothing is persisted.
+     *
+     * Every line is revalidated against the database's current state before anything is
+     * written — [CartLine] only carries a product id and quantity, so the product's existence,
+     * active state, current selling price, and tracked stock are all read fresh here and are
+     * what actually gets persisted.
      */
     suspend fun confirmQuickSale(
         lines: List<CartLine>,
@@ -152,6 +174,23 @@ class OrderRepository(
         if (isFiado) require(customerId != null) { "Fiado requires a customer" }
 
         return database.withTransaction {
+            // Revalidate against the current database state — never trust product data
+            // captured when the cart was built. Validating every line before writing anything
+            // means a problem with one item never leaves earlier items half-persisted (the
+            // surrounding transaction would roll those back anyway, but failing fast here keeps
+            // the intent explicit).
+            val freshLines = lines.map { line ->
+                require(line.quantity > 0) { "Quantity must be greater than zero" }
+                val fresh = productDao.getById(line.productId)
+                if (fresh == null || !fresh.active) {
+                    throw ProductUnavailableException(line.productId, fresh?.name.orEmpty())
+                }
+                if (fresh.trackStock && fresh.stockQuantity < line.quantity) {
+                    throw InsufficientStockException(fresh.id, fresh.name, fresh.stockQuantity, line.quantity)
+                }
+                fresh to line.quantity
+            }
+
             val now = System.currentTimeMillis()
             val orderId = orderDao.insert(
                 OrderEntity(
@@ -163,22 +202,21 @@ class OrderRepository(
             )
 
             var totalCents = 0L
-            for (line in lines) {
-                require(line.quantity > 0) { "Quantity must be greater than zero" }
-                val subtotal = OrderTotalCalculator.itemSubtotal(Money(line.product.priceCents), line.quantity)
+            for ((product, quantity) in freshLines) {
+                val subtotal = OrderTotalCalculator.itemSubtotal(Money(product.priceCents), quantity)
                 orderItemDao.insert(
                     OrderItemEntity(
                         orderId = orderId,
-                        productId = line.product.id,
-                        productNameSnapshot = line.product.name,
-                        unitPriceCentsSnapshot = line.product.priceCents,
-                        quantity = line.quantity,
+                        productId = product.id,
+                        productNameSnapshot = product.name,
+                        unitPriceCentsSnapshot = product.priceCents,
+                        quantity = quantity,
                         subtotalCents = subtotal.minorUnits,
                     ),
                 )
                 totalCents += subtotal.minorUnits
-                if (line.product.trackStock) {
-                    productDao.decrementStock(line.product.id, line.quantity, now)
+                if (product.trackStock) {
+                    productDao.decrementStock(product.id, quantity, now)
                 }
             }
 
