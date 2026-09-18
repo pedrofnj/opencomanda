@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pedroleite.opencomanda.R
+import com.pedroleite.opencomanda.ui.cashregister.CashRegisterScreen
 import com.pedroleite.opencomanda.ui.comandas.ComandaDetailScreen
 import com.pedroleite.opencomanda.ui.comandas.NewComandaScreen
 import com.pedroleite.opencomanda.ui.comandas.OpenComandasScreen
@@ -132,10 +133,7 @@ fun OpenComandaNavHost(navController: NavHostController = rememberNavController(
             )
         }
         composable(Destination.CashRegister.route) {
-            PlaceholderScreen(
-                title = stringResource(R.string.action_cash_register),
-                onBack = { navController.popBackStack() },
-            )
+            CashRegisterScreen(onBack = { navController.popBackStack() })
         }
     }
 }

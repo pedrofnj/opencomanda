@@ -76,6 +76,7 @@ class ComandaDetailScreenTest {
             paymentDao = database.paymentDao(),
             debtDao = database.debtDao(),
             productDao = database.productDao(),
+            cashSessionDao = database.cashSessionDao(),
         )
         productRepository = ProductRepository(database.productDao())
         categoryRepository = CategoryRepository(database.categoryDao())

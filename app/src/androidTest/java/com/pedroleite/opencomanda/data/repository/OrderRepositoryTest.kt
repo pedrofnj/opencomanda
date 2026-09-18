@@ -44,6 +44,7 @@ class OrderRepositoryTest {
             paymentDao = database.paymentDao(),
             debtDao = database.debtDao(),
             productDao = database.productDao(),
+            cashSessionDao = database.cashSessionDao(),
         )
 
         val now = System.currentTimeMillis()
@@ -75,7 +76,7 @@ class OrderRepositoryTest {
     fun cannotAddItemsToAClosedOrder() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 1")
         orderRepository.addComandaItem(orderId, productId, 1.0)
-        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH)
 
         assertThrows(IllegalStateException::class.java) {
             runBlocking { orderRepository.addComandaItem(orderId, productId, 1.0) }
@@ -88,7 +89,7 @@ class OrderRepositoryTest {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 2")
         orderRepository.addComandaItem(orderId, productId, 2.0)
 
-        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.PIX, cashSessionId = null)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.PIX)
 
         val order = database.orderDao().getById(orderId)!!
         assertEquals(OrderStatus.CLOSED, order.status)
@@ -167,7 +168,6 @@ class OrderRepositoryTest {
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
 
         val openComandas = orderRepository.getOpenComandas().first()
@@ -291,7 +291,7 @@ class OrderRepositoryTest {
     fun cannotDecrementItemsOnAClosedOrder() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 17")
         orderRepository.addComandaItem(orderId, productId, 1.0)
-        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH)
 
         assertThrows(IllegalStateException::class.java) {
             runBlocking { orderRepository.decrementComandaItem(orderId, productId) }
@@ -316,7 +316,7 @@ class OrderRepositoryTest {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 19")
 
         assertThrows(IllegalStateException::class.java) {
-            runBlocking { orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null) }
+            runBlocking { orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH) }
         }
         Unit
     }
@@ -326,7 +326,7 @@ class OrderRepositoryTest {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 20")
         orderRepository.addComandaItem(orderId, productId, 1.0)
 
-        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH)
 
         val order = database.orderDao().getById(orderId)!!
         assertTrue(order.closedAt != null)
@@ -338,7 +338,7 @@ class OrderRepositoryTest {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 21")
         orderRepository.addComandaItem(orderId, productId, 2.0)
 
-        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.PIX, cashSessionId = null)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.PIX)
 
         val payment = database.paymentDao().getForOrder(orderId).first().single()
         val itemsTotal = database.orderItemDao().getOrderTotalCentsOnce(orderId)
@@ -349,10 +349,10 @@ class OrderRepositoryTest {
     fun closingAComandaTwiceIsRejectedAndNeverCreatesASecondPayment() = runBlocking {
         val orderId = orderRepository.createComanda(customerId = null, displayName = "Mesa 22")
         orderRepository.addComandaItem(orderId, productId, 1.0)
-        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null)
+        orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH)
 
         assertThrows(IllegalStateException::class.java) {
-            runBlocking { orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH, cashSessionId = null) }
+            runBlocking { orderRepository.closeOrderWithPayment(orderId, PaymentMethod.CASH) }
         }
 
         assertEquals(1, database.paymentDao().getForOrder(orderId).first().size)
@@ -412,7 +412,6 @@ class OrderRepositoryTest {
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
 
         val order = database.orderDao().getById(orderId)!!
@@ -438,7 +437,6 @@ class OrderRepositoryTest {
                     method = null,
                     isFiado = true,
                     customerId = null,
-                    cashSessionId = null,
                 )
             }
         }
@@ -454,7 +452,6 @@ class OrderRepositoryTest {
                     method = PaymentMethod.CASH,
                     isFiado = false,
                     customerId = null,
-                    cashSessionId = null,
                 )
             }
         }
@@ -472,7 +469,6 @@ class OrderRepositoryTest {
                     method = PaymentMethod.CASH,
                     isFiado = false,
                     customerId = null,
-                    cashSessionId = null,
                 )
             }
         }
@@ -517,7 +513,6 @@ class OrderRepositoryTest {
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
 
         assertEquals(8.0, database.productDao().getById(espetinhoId)!!.stockQuantity, 0.0001)
@@ -543,7 +538,6 @@ class OrderRepositoryTest {
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
 
         assertEquals(0.0, database.productDao().getById(untrackedId)!!.stockQuantity, 0.0001)
@@ -571,7 +565,6 @@ class OrderRepositoryTest {
                     method = PaymentMethod.CASH,
                     isFiado = false,
                     customerId = null,
-                    cashSessionId = null,
                 )
             }
         }
@@ -601,7 +594,6 @@ class OrderRepositoryTest {
                     method = PaymentMethod.CASH,
                     isFiado = false,
                     customerId = null,
-                    cashSessionId = null,
                 )
             }
         }
@@ -622,7 +614,6 @@ class OrderRepositoryTest {
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
 
         val item = database.orderItemDao().getItemsForOrder(orderId).first().single()
@@ -637,7 +628,6 @@ class OrderRepositoryTest {
             method = PaymentMethod.PIX,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
 
         val payment = database.paymentDao().getForOrder(orderId).first().single()
@@ -653,7 +643,6 @@ class OrderRepositoryTest {
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
 
         val order = database.orderDao().getById(orderId)!!
@@ -667,7 +656,6 @@ class OrderRepositoryTest {
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
 
         val payment = database.paymentDao().getForOrder(orderId).first().single()

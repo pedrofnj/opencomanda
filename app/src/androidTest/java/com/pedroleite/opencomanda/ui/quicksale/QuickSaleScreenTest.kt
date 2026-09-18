@@ -76,6 +76,7 @@ class QuickSaleScreenTest {
             paymentDao = database.paymentDao(),
             debtDao = database.debtDao(),
             productDao = database.productDao(),
+            cashSessionDao = database.cashSessionDao(),
         )
         viewModel = QuickSaleViewModel(productRepository, categoryRepository, orderRepository)
     }

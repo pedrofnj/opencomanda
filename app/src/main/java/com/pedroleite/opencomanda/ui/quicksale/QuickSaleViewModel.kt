@@ -185,7 +185,6 @@ class QuickSaleViewModel(
                     method = method,
                     isFiado = false,
                     customerId = null,
-                    cashSessionId = null,
                 )
                 val summary = QuickSaleSummary(lines = lines, totalCents = state.totalCents, paymentMethod = method)
                 cartLines.value = emptyList()

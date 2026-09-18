@@ -137,4 +137,28 @@
     <string name="comanda_closed_title">Comanda fechada</string>
     <string name="comanda_error_add_failed">Não foi possível adicionar o item. Tente novamente.</string>
     <string name="comanda_error_close_failed">Não foi possível fechar a comanda. Tente novamente.</string>
+
+    <string name="cash_register_empty_title">Caixa fechado</string>
+    <string name="cash_register_empty_message">Abra o caixa para começar a registrar vendas.</string>
+    <string name="cash_register_open_action">Abrir caixa</string>
+    <string name="cash_register_last_closed_title">Último fechamento</string>
+    <string name="cash_register_opening_balance_label">Saldo inicial</string>
+    <string name="cash_register_opening_notes_label">Observações (opcional)</string>
+    <string name="cash_register_confirm_open_action">Confirmar abertura</string>
+    <string name="cash_register_error_open_failed">Não foi possível abrir o caixa. Tente novamente.</string>
+    <string name="cash_register_opened_at_label">Aberto em %1$s</string>
+    <string name="cash_register_received_by_method_title">Recebido por forma de pagamento</string>
+    <string name="cash_register_total_received_label">Total recebido</string>
+    <string name="cash_register_expected_cash_label">Dinheiro esperado em caixa</string>
+    <string name="cash_register_close_action">Fechar caixa</string>
+    <string name="cash_register_no_payments_message">Nenhum pagamento registrado ainda.</string>
+    <string name="cash_register_counted_cash_label">Dinheiro contado</string>
+    <string name="cash_register_difference_label">Diferença</string>
+    <string name="cash_register_difference_positive">%1$s a mais (sobra)</string>
+    <string name="cash_register_difference_negative">%1$s a menos (falta)</string>
+    <string name="cash_register_difference_zero">Caixa bateu certinho</string>
+    <string name="cash_register_confirm_close_action">Confirmar fechamento</string>
+    <string name="cash_register_error_close_failed">Não foi possível fechar o caixa. Tente novamente.</string>
+    <string name="cash_register_closed_summary_title">Caixa fechado</string>
+    <string name="cash_register_closed_at_label">Fechado em %1$s</string>
 </resources>

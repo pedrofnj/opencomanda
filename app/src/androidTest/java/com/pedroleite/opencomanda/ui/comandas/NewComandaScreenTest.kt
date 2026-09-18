@@ -57,6 +57,7 @@ class NewComandaScreenTest {
             paymentDao = database.paymentDao(),
             debtDao = database.debtDao(),
             productDao = database.productDao(),
+            cashSessionDao = database.cashSessionDao(),
         )
         customerRepository = CustomerRepository(database.customerDao())
     }

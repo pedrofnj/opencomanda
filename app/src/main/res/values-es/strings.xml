@@ -136,4 +136,28 @@
     <string name="comanda_closed_title">Comanda cerrada</string>
     <string name="comanda_error_add_failed">No se pudo agregar el ítem. Inténtalo de nuevo.</string>
     <string name="comanda_error_close_failed">No se pudo cerrar la comanda. Inténtalo de nuevo.</string>
+
+    <string name="cash_register_empty_title">Caja cerrada</string>
+    <string name="cash_register_empty_message">Abre la caja para empezar a registrar ventas.</string>
+    <string name="cash_register_open_action">Abrir caja</string>
+    <string name="cash_register_last_closed_title">Último cierre</string>
+    <string name="cash_register_opening_balance_label">Saldo inicial</string>
+    <string name="cash_register_opening_notes_label">Notas (opcional)</string>
+    <string name="cash_register_confirm_open_action">Confirmar apertura</string>
+    <string name="cash_register_error_open_failed">No se pudo abrir la caja. Inténtalo de nuevo.</string>
+    <string name="cash_register_opened_at_label">Abierta a las %1$s</string>
+    <string name="cash_register_received_by_method_title">Recibido por forma de pago</string>
+    <string name="cash_register_total_received_label">Total recibido</string>
+    <string name="cash_register_expected_cash_label">Efectivo esperado en caja</string>
+    <string name="cash_register_close_action">Cerrar caja</string>
+    <string name="cash_register_no_payments_message">Aún no hay pagos registrados.</string>
+    <string name="cash_register_counted_cash_label">Efectivo contado</string>
+    <string name="cash_register_difference_label">Diferencia</string>
+    <string name="cash_register_difference_positive">%1$s de más (sobra)</string>
+    <string name="cash_register_difference_negative">%1$s de menos (falta)</string>
+    <string name="cash_register_difference_zero">La caja cuadra exactamente</string>
+    <string name="cash_register_confirm_close_action">Confirmar cierre</string>
+    <string name="cash_register_error_close_failed">No se pudo cerrar la caja. Inténtalo de nuevo.</string>
+    <string name="cash_register_closed_summary_title">Caja cerrada</string>
+    <string name="cash_register_closed_at_label">Cerrada a las %1$s</string>
 </resources>

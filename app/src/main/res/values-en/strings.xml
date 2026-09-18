@@ -136,4 +136,28 @@
     <string name="comanda_closed_title">Comanda closed</string>
     <string name="comanda_error_add_failed">Couldn\'t add the item. Please try again.</string>
     <string name="comanda_error_close_failed">Couldn\'t close the comanda. Please try again.</string>
+
+    <string name="cash_register_empty_title">Cash register closed</string>
+    <string name="cash_register_empty_message">Open the register to start recording sales.</string>
+    <string name="cash_register_open_action">Open register</string>
+    <string name="cash_register_last_closed_title">Last closing</string>
+    <string name="cash_register_opening_balance_label">Opening balance</string>
+    <string name="cash_register_opening_notes_label">Notes (optional)</string>
+    <string name="cash_register_confirm_open_action">Confirm opening</string>
+    <string name="cash_register_error_open_failed">Couldn\'t open the register. Please try again.</string>
+    <string name="cash_register_opened_at_label">Opened at %1$s</string>
+    <string name="cash_register_received_by_method_title">Received by payment method</string>
+    <string name="cash_register_total_received_label">Total received</string>
+    <string name="cash_register_expected_cash_label">Expected cash in drawer</string>
+    <string name="cash_register_close_action">Close register</string>
+    <string name="cash_register_no_payments_message">No payments recorded yet.</string>
+    <string name="cash_register_counted_cash_label">Counted cash</string>
+    <string name="cash_register_difference_label">Difference</string>
+    <string name="cash_register_difference_positive">%1$s over</string>
+    <string name="cash_register_difference_negative">%1$s short</string>
+    <string name="cash_register_difference_zero">Drawer matches exactly</string>
+    <string name="cash_register_confirm_close_action">Confirm closing</string>
+    <string name="cash_register_error_close_failed">Couldn\'t close the register. Please try again.</string>
+    <string name="cash_register_closed_summary_title">Register closed</string>
+    <string name="cash_register_closed_at_label">Closed at %1$s</string>
 </resources>

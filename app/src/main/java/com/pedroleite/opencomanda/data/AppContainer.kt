@@ -32,6 +32,7 @@ class AppContainer(context: Context) {
             paymentDao = database.paymentDao(),
             debtDao = database.debtDao(),
             productDao = database.productDao(),
+            cashSessionDao = database.cashSessionDao(),
         )
     }
 
@@ -40,6 +41,6 @@ class AppContainer(context: Context) {
     }
 
     val cashRegisterRepository: CashRegisterRepository by lazy {
-        CashRegisterRepository(database.cashSessionDao(), database.paymentDao(), database.debtPaymentDao())
+        CashRegisterRepository(database, database.cashSessionDao(), database.paymentDao(), database.debtPaymentDao())
     }
 }

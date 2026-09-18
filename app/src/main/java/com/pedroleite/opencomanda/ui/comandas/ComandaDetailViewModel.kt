@@ -251,7 +251,7 @@ class ComandaDetailViewModel(
         screenState.update { it.copy(isClosing = true, error = null) }
         viewModelScope.launch {
             try {
-                orderRepository.closeOrderWithPayment(comandaId, method, cashSessionId = null)
+                orderRepository.closeOrderWithPayment(comandaId, method)
                 val summary = ComandaClosedSummary(
                     displayName = displayName,
                     items = items,

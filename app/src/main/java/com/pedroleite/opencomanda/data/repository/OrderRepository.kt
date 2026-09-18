@@ -3,6 +3,7 @@ package com.pedroleite.opencomanda.data.repository
 import androidx.room.withTransaction
 import com.pedroleite.opencomanda.core.Money
 import com.pedroleite.opencomanda.data.local.AppDatabase
+import com.pedroleite.opencomanda.data.local.dao.CashSessionDao
 import com.pedroleite.opencomanda.data.local.dao.DebtDao
 import com.pedroleite.opencomanda.data.local.dao.OrderDao
 import com.pedroleite.opencomanda.data.local.dao.OrderItemDao
@@ -13,6 +14,7 @@ import com.pedroleite.opencomanda.data.local.entity.OrderEntity
 import com.pedroleite.opencomanda.data.local.entity.OrderItemEntity
 import com.pedroleite.opencomanda.data.local.entity.PaymentEntity
 import com.pedroleite.opencomanda.data.local.entity.ProductEntity
+import com.pedroleite.opencomanda.domain.CashSessionStatus
 import com.pedroleite.opencomanda.domain.DebtStatus
 import com.pedroleite.opencomanda.domain.OrderStatus
 import com.pedroleite.opencomanda.domain.OrderTotalCalculator
@@ -47,7 +49,14 @@ class OrderRepository(
     private val paymentDao: PaymentDao,
     private val debtDao: DebtDao,
     private val productDao: ProductDao,
+    private val cashSessionDao: CashSessionDao,
 ) {
+
+    /** The currently OPEN cash session's id, if any — looked up fresh at the moment a Payment
+     *  is about to be created, inside the same transaction, so it's never based on UI state that
+     *  could be stale. If no session is open, the Payment simply isn't attached to one; it is
+     *  NOT retroactively attached to a session opened later (see [CashRegisterRepository]). */
+    private suspend fun currentOpenCashSessionId(): Long? = cashSessionDao.getByStatus(CashSessionStatus.OPEN)?.id
 
     /** Every currently OPEN Comanda, with its item count and total pre-aggregated for the Open
      *  Comandas list. Never includes Quick Sales (a different [OrderType]) or CLOSED/CANCELLED
@@ -184,8 +193,10 @@ class OrderRepository(
         }
     }
 
-    /** Closes an order with a real payment (cash/debit/credit/pix/other) — never used for Fiado. */
-    suspend fun closeOrderWithPayment(orderId: Long, method: PaymentMethod, cashSessionId: Long?) {
+    /** Closes an order with a real payment (cash/debit/credit/pix/other) — never used for Fiado.
+     *  The payment is attached to whichever cash session is OPEN at this exact moment, if any
+     *  (see [currentOpenCashSessionId]) — never a session id supplied by the caller. */
+    suspend fun closeOrderWithPayment(orderId: Long, method: PaymentMethod) {
         database.withTransaction {
             val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
             check(order.status == OrderStatus.OPEN) { "Order is not open" }
@@ -195,7 +206,7 @@ class OrderRepository(
             paymentDao.insert(
                 PaymentEntity(
                     orderId = orderId,
-                    cashSessionId = cashSessionId,
+                    cashSessionId = currentOpenCashSessionId(),
                     method = method,
                     amountCents = totalCents,
                     createdAt = now,
@@ -239,13 +250,15 @@ class OrderRepository(
      * written — [CartLine] only carries a product id and quantity, so the product's existence,
      * active state, current selling price, and tracked stock are all read fresh here and are
      * what actually gets persisted.
+     *
+     * A non-Fiado sale's payment is attached to whichever cash session is OPEN at this exact
+     * moment, if any (see [currentOpenCashSessionId]) — never a session id supplied by the caller.
      */
     suspend fun confirmQuickSale(
         lines: List<CartLine>,
         method: PaymentMethod?,
         isFiado: Boolean,
         customerId: Long?,
-        cashSessionId: Long?,
     ): Long {
         require(lines.isNotEmpty()) { "Cannot confirm a sale with no items" }
         require(isFiado != (method != null)) { "Provide either a payment method or Fiado, not both/neither" }
@@ -312,7 +325,7 @@ class OrderRepository(
                 paymentDao.insert(
                     PaymentEntity(
                         orderId = orderId,
-                        cashSessionId = cashSessionId,
+                        cashSessionId = currentOpenCashSessionId(),
                         method = requireNotNull(method),
                         amountCents = totalCents,
                         createdAt = now,

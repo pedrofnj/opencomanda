@@ -166,9 +166,21 @@ class NavigationTest {
     fun backNavigationFromAPlaceholderReturnsToHome() {
         setNavHostContent()
 
-        composeTestRule.onNodeWithText(string(R.string.action_cash_register)).performScrollTo().performClick()
+        composeTestRule.onNodeWithText(string(R.string.action_fiado)).performScrollTo().performClick()
         composeTestRule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
 
         composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true).assertExists()
+    }
+
+    @Test
+    fun navigatingToCashRegisterOpensTheRealScreenNotAPlaceholder() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_cash_register)).performScrollTo().performClick()
+
+        // The real Cash Register screen shows its closed/empty-state copy; it must never show
+        // the placeholder text.
+        composeTestRule.onNodeWithText(string(R.string.cash_register_empty_title)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
     }
 }

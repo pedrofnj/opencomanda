@@ -55,6 +55,7 @@ class OpenComandasScreenTest {
             paymentDao = database.paymentDao(),
             debtDao = database.debtDao(),
             productDao = database.productDao(),
+            cashSessionDao = database.cashSessionDao(),
         )
         val now = System.currentTimeMillis()
         productId = database.productDao().insert(
@@ -106,11 +107,10 @@ class OpenComandasScreenTest {
             method = PaymentMethod.CASH,
             isFiado = false,
             customerId = null,
-            cashSessionId = null,
         )
         val closedId = orderRepository.createComanda(customerId = null, displayName = "Mesa Fechada")
         orderRepository.addComandaItem(closedId, productId, 1.0)
-        orderRepository.closeOrderWithPayment(closedId, PaymentMethod.CASH, cashSessionId = null)
+        orderRepository.closeOrderWithPayment(closedId, PaymentMethod.CASH)
         orderRepository.createComanda(customerId = null, displayName = "Mesa Aberta")
 
         setScreenContent()
