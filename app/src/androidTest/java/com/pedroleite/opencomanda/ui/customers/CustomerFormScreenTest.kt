@@ -1,6 +1,7 @@
 package com.pedroleite.opencomanda.ui.customers
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -50,6 +51,14 @@ class CustomerFormScreenTest {
     @After
     fun tearDown() {
         database.close()
+    }
+
+    /** The edit form loads the customer asynchronously, so the first frame shows empty fields:
+     *  always wait for the loaded value before asserting on it or interacting. */
+    private fun waitForText(text: String) {
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     // Constructing the ViewModel directly (bypassing the app-container-backed factory) is
@@ -123,9 +132,9 @@ class CustomerFormScreenTest {
         var saved = false
         setFormContent(customerId = id, onSaved = { saved = true })
 
-        composeTestRule.onNodeWithText("Costela").assertExists()
-        composeTestRule.onNodeWithText("11999990000").assertExists()
-        composeTestRule.onNodeWithText("Nota antiga").assertExists()
+        waitForText("Costela")
+        waitForText("11999990000")
+        waitForText("Nota antiga")
 
         composeTestRule.onNodeWithTag(CustomerFormTestTags.NAME_FIELD).performTextClearance()
         composeTestRule.onNodeWithTag(CustomerFormTestTags.NAME_FIELD).performTextInput("Costela Premium")
@@ -145,7 +154,7 @@ class CustomerFormScreenTest {
         var saved = false
         setFormContent(customerId = id, onSaved = { saved = true })
 
-        composeTestRule.onNodeWithText("11999990000").assertExists()
+        waitForText("11999990000")
 
         composeTestRule.onNodeWithTag(CustomerFormTestTags.PHONE_FIELD).performTextClearance()
         composeTestRule.onNodeWithTag(CustomerFormTestTags.NOTES_FIELD).performTextClearance()

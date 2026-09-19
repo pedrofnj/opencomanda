@@ -58,6 +58,14 @@ class ProductFormScreenTest {
         database.close()
     }
 
+    /** The edit form loads the product asynchronously, so the first frame shows empty fields:
+     *  always wait for the loaded value before asserting on it or interacting. */
+    private fun waitForText(text: String) {
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     // Constructing the ViewModel directly (bypassing the app-container-backed factory) is
     // deliberate here: it's what lets this test inject an isolated in-memory-database repository.
     @Suppress("ViewModelConstructorInComposable")
@@ -148,7 +156,7 @@ class ProductFormScreenTest {
         var saved = false
         setFormContent(productId = id, onSaved = { saved = true })
 
-        composeTestRule.onNodeWithText("Costela").assertExists()
+        waitForText("Costela")
         composeTestRule.onNodeWithTag(ProductFormTestTags.SAVE_BUTTON).performClick()
 
         composeTestRule.waitUntil(timeoutMillis = 5_000) { saved }
@@ -270,7 +278,7 @@ class ProductFormScreenTest {
 
         // The now-inactive category is still shown, not silently dropped.
         val inactiveCategoryLabel = context.getString(R.string.product_field_category_inactive_suffix, "Doses")
-        composeTestRule.onNodeWithText(inactiveCategoryLabel).assertExists()
+        waitForText(inactiveCategoryLabel)
 
         composeTestRule.onNodeWithTag(ProductFormTestTags.SAVE_BUTTON).performClick()
         composeTestRule.waitUntil(timeoutMillis = 5_000) { saved }
