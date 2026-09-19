@@ -66,7 +66,10 @@ jobs:
   # `validate` so a lint or unit-test failure never hides the instrumented result.
   instrumented-tests:
     name: Instrumented tests (API 35)
-    runs-on: ubuntu-latest
+    # Pinned (not ubuntu-latest, which moves to Ubuntu 26 on 2026-10-19): the emulator and KVM
+    # setup below are only known to work on this image, so a runner-image change should be an
+    # explicit, reviewed edit rather than a surprise.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Check out repository
@@ -97,14 +100,28 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          ram-size: 2048M
+          # The runner has 16 GB and 4 vCPUs. 2 GB was tight for an Android 15 guest running
+          # ~380 Compose/Room tests with software rendering; 4 GB leaves the guest room and still
+          # leaves the host plenty for the Gradle daemon. Two cores keep the other two for Gradle.
+          ram-size: 4096M
+          cores: 2
           disable-animations: true
+          # swiftshader_indirect is the software GPU this action defaults to and recommends for
+          # runners without a GPU; there is no more stable rendering option on ubuntu runners.
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          # Each line runs as its own `sh -c`. The action already waits for boot; the first two
+          # lines re-check it explicitly so a half-started emulator can't reach Gradle, and
+          # `adb devices -l` records the device state in the log.
           # Some UI tests (NavigationTest) use the app's real on-device database, so make sure
           # no earlier install of the app, and its data, is present before they run.
+          # If Gradle fails, log whether the device is still reachable ("offline" means the
+          # emulator itself died) and keep the last of logcat for the artifact below.
           script: |
+            adb wait-for-device
+            adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
+            adb devices -l
             adb uninstall com.pedroleite.opencomanda || true
-            ./gradlew connectedDebugAndroidTest --stacktrace
+            ./gradlew connectedDebugAndroidTest --stacktrace || { echo "Gradle failed; adb state: $(adb get-state 2>&1)"; adb logcat -d -t 3000 > logcat-tail.txt 2>&1; exit 1; }
 
       - name: Upload instrumented test reports
         if: failure()
@@ -114,5 +131,6 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            logcat-tail.txt
           if-no-files-found: warn
           retention-days: 14
