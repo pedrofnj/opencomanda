@@ -1,0 +1,138 @@
+name: OpenComanda CI
+
+# Continuous integration only: build, test and lint. There is no deployment, signing or
+# publishing here, and no secrets are used.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - 'feat/**'
+
+# A newer run for the same workflow and ref replaces an older, still-running one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The workflow only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  # Fast gate: debug build + JVM unit tests + Android lint. No emulator needed.
+  validate:
+    name: Build, unit tests and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      # AGP 9 / Gradle 9 need JDK 17+, and the project compiles with Java 17 compatibility
+      # (see compileOptions in app/build.gradle.kts).
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Handles Gradle caching, and validates the checked-in Gradle wrapper JAR against the
+      # official checksums (validate-wrappers).
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: true
+
+      - name: Build, run unit tests and lint
+        run: ./gradlew assembleDebug testDebugUnitTest lintDebug --stacktrace
+
+      - name: Upload test and lint reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: validate-reports
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Android instrumented tests (Compose UI + Room) on an emulator. Runs in parallel with
+  # `validate` so a lint or unit-test failure never hides the instrumented result.
+  instrumented-tests:
+    name: Instrumented tests (API 35)
+    # Pinned (not ubuntu-latest, which moves to Ubuntu 26 on 2026-10-19): the emulator and KVM
+    # setup below are only known to work on this image, so a runner-image change should be an
+    # explicit, reviewed edit rather than a surprise.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: true
+
+      # Hardware acceleration for the emulator. Without KVM the emulator is far too slow.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          # The runner has 16 GB and 4 vCPUs. 2 GB was tight for an Android 15 guest running
+          # ~380 Compose/Room tests with software rendering; 4 GB leaves the guest room and still
+          # leaves the host plenty for the Gradle daemon. Two cores keep the other two for Gradle.
+          ram-size: 4096M
+          cores: 2
+          disable-animations: true
+          # swiftshader_indirect is the software GPU this action defaults to and recommends for
+          # runners without a GPU; there is no more stable rendering option on ubuntu runners.
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          # Each line runs as its own `sh -c`. The action already waits for boot; the first two
+          # lines re-check it explicitly so a half-started emulator can't reach Gradle, and
+          # `adb devices -l` records the device state in the log.
+          # Some UI tests (NavigationTest) use the app's real on-device database, so make sure
+          # no earlier install of the app, and its data, is present before they run.
+          # The Gradle run itself is in a script file: it can't be written here because every line
+          # is a separate `sh -c`. It runs Gradle with --info, keeps the full log, and on failure
+          # prints which tests failed (Gradle alone only says "connectedDebugAndroidTest FAILED").
+          script: |
+            adb wait-for-device
+            adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
+            adb devices -l
+            adb uninstall com.pedroleite.opencomanda || true
+            bash .github/scripts/run-instrumented-tests.sh
+
+      - name: Upload instrumented test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: instrumented-test-reports
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            gradle-instrumented-tests.log
+            logcat-tail.txt
+          if-no-files-found: warn
+          retention-days: 14
