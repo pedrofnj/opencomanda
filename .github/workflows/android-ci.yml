@@ -114,14 +114,15 @@ jobs:
           # `adb devices -l` records the device state in the log.
           # Some UI tests (NavigationTest) use the app's real on-device database, so make sure
           # no earlier install of the app, and its data, is present before they run.
-          # If Gradle fails, log whether the device is still reachable ("offline" means the
-          # emulator itself died) and keep the last of logcat for the artifact below.
+          # The Gradle run itself is in a script file: it can't be written here because every line
+          # is a separate `sh -c`. It runs Gradle with --info, keeps the full log, and on failure
+          # prints which tests failed (Gradle alone only says "connectedDebugAndroidTest FAILED").
           script: |
             adb wait-for-device
             adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
             adb devices -l
             adb uninstall com.pedroleite.opencomanda || true
-            ./gradlew connectedDebugAndroidTest --stacktrace || { echo "Gradle failed; adb state: $(adb get-state 2>&1)"; adb logcat -d -t 3000 > logcat-tail.txt 2>&1; exit 1; }
+            bash .github/scripts/run-instrumented-tests.sh
 
       - name: Upload instrumented test reports
         if: failure()
@@ -131,6 +132,7 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            gradle-instrumented-tests.log
             logcat-tail.txt
           if-no-files-found: warn
           retention-days: 14
