@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
@@ -110,6 +111,12 @@ fun HomeScreen(onNavigate: (Destination) -> Unit, modifier: Modifier = Modifier)
                             icon = Icons.Filled.Inventory2,
                             emphasis = ActionEmphasis.Tertiary,
                             onClick = { onNavigate(Destination.Products) },
+                        )
+                        HomeActionCard(
+                            label = stringResource(R.string.action_stock),
+                            icon = Icons.Filled.Warehouse,
+                            emphasis = ActionEmphasis.Tertiary,
+                            onClick = { onNavigate(Destination.Stock) },
                         )
                         HomeActionCard(
                             label = stringResource(R.string.action_customers),

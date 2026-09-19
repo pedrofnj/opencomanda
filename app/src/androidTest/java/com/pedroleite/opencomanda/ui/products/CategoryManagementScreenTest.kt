@@ -1,6 +1,7 @@
 package com.pedroleite.opencomanda.ui.products
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -48,6 +49,12 @@ class CategoryManagementScreenTest {
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
         repository = CategoryRepository(database.categoryDao())
+    }
+
+    private fun waitForContentDescription(description: String) {
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithContentDescription(description).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @After
@@ -132,11 +139,16 @@ class CategoryManagementScreenTest {
             runBlocking { repository.getById(id)?.active == false }
         }
 
+        // Wait for the UI (not just the database) to show each state: a write triggers a Room
+        // flow re-query in the ViewModel, and finishing — then closing the database in tearDown —
+        // while that query is still in flight makes the test fail intermittently.
         val inactiveDescription = "Doses: " + string(R.string.category_status_inactive)
+        waitForContentDescription(inactiveDescription)
         composeTestRule.onNodeWithContentDescription(inactiveDescription).performClick()
 
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             runBlocking { repository.getById(id)?.active == true }
         }
+        waitForContentDescription(activeDescription)
     }
 }

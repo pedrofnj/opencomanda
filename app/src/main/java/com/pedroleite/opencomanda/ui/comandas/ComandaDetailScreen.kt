@@ -521,9 +521,14 @@ private fun ComandaProductRow(
 ) {
     val locale = LocalLocale.current.platformLocale
     val addDescription = stringResource(R.string.quicksale_add_action, product.name)
+    // A tracked product at zero can't be added. The repository still enforces this; the row just
+    // says so in words instead of letting the operator find out at confirmation.
+    val outOfStock = product.trackStock && product.stockQuantity <= 0.0
+    val addBlocked = outOfStock && quantity <= 0.0
 
     Card(
         onClick = onAdd,
+        enabled = !addBlocked,
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         shape = MaterialTheme.shapes.large,
@@ -543,6 +548,14 @@ private fun ComandaProductRow(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (outOfStock) {
+                    Text(
+                        text = stringResource(R.string.stock_out_of_stock),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 if (categoryName != null) {
                     Text(
                         text = categoryName,
@@ -554,9 +567,13 @@ private fun ComandaProductRow(
             if (quantity <= 0.0) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = addDescription,
+                    contentDescription = if (addBlocked) {
+                        stringResource(R.string.stock_product_out_of_stock_description, product.name)
+                    } else {
+                        addDescription
+                    },
                     modifier = Modifier.size(28.dp),
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = if (addBlocked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                 )
             } else {
                 ComandaQuantityStepper(

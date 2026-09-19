@@ -11,7 +11,6 @@
     <string name="action_cash_register">Cash Register</string>
     <string name="section_service">SERVICE</string>
     <string name="section_manage">MANAGE</string>
-    <string name="placeholder_message">This feature will be available in an upcoming phase of OpenComanda.</string>
     <string name="action_back">Back</string>
     <string name="action_cancel">Cancel</string>
 
@@ -122,7 +121,6 @@
     <string name="comanda_list_empty_cta">New comanda</string>
     <string name="comanda_item_count">%1$s items</string>
     <string name="comanda_detail_add_products_action">Add products</string>
-    <string name="comanda_detail_items_title">Items</string>
     <string name="comanda_detail_empty_items_title">Comanda is empty</string>
     <string name="comanda_detail_empty_items_message">Add products to get started.</string>
     <string name="comanda_detail_close_action">Close comanda</string>
@@ -162,15 +160,15 @@
     <string name="cash_register_closed_at_label">Closed at %1$s</string>
 
     <string name="comanda_or_divider">or</string>
-    <string name="comanda_fiado_action">Record as Fiado</string>
+    <string name="comanda_fiado_action">Put on store credit</string>
     <string name="comanda_fiado_customer_required">Customer required</string>
-    <string name="comanda_fiado_select_customer_hint">Select a customer to use Fiado</string>
-    <string name="comanda_fiado_confirm_title">Confirm Fiado</string>
-    <string name="comanda_fiado_confirm_action">Confirm Fiado</string>
-    <string name="comanda_fiado_closed_title">Comanda recorded as Fiado</string>
+    <string name="comanda_fiado_select_customer_hint">Select a customer to use store credit</string>
+    <string name="comanda_fiado_confirm_title">Confirm store credit</string>
+    <string name="comanda_fiado_confirm_action">Confirm store credit</string>
+    <string name="comanda_fiado_closed_title">Comanda put on store credit</string>
 
-    <string name="fiado_empty_title">No outstanding Fiado</string>
-    <string name="fiado_empty_message">When a comanda is closed as Fiado, it will show up here.</string>
+    <string name="fiado_empty_title">No outstanding store credit</string>
+    <string name="fiado_empty_message">When a comanda is closed on store credit, it will show up here.</string>
     <string name="fiado_customer_open_amount">Outstanding: %1$s</string>
     <string name="fiado_customer_debt_count">%1$s debts</string>
 
@@ -183,18 +181,45 @@
     <string name="fiado_debt_status_partial">Partial</string>
     <string name="fiado_debt_status_paid">Paid</string>
     <string name="fiado_register_payment_action">Register payment</string>
-    <string name="fiado_debt_not_found">Fiado not found</string>
+    <string name="fiado_debt_not_found">Store credit not found</string>
 
     <string name="fiado_outstanding_amount_label">Outstanding amount</string>
     <string name="fiado_payment_amount_label">Amount paid now</string>
     <string name="fiado_pay_all_action">Pay in full</string>
     <string name="fiado_confirm_payment_action">Confirm payment</string>
     <string name="fiado_payment_registered_title">Payment registered</string>
-    <string name="fiado_debt_settled_message">Fiado settled</string>
+    <string name="fiado_debt_settled_message">Store credit settled</string>
     <string name="fiado_payment_history_title">Payment history</string>
     <string name="fiado_payment_history_empty">No payments registered yet</string>
     <string name="fiado_error_zero_amount">Enter an amount greater than zero</string>
     <string name="fiado_error_overpayment">Amount is greater than the outstanding balance</string>
     <string name="fiado_error_payment_method_required">Select a payment method</string>
     <string name="fiado_error_payment_failed">Couldn\'t register the payment. Please try again.</string>
+
+    <string name="action_stock">Stock</string>
+    <string name="stock_search_label">Search products</string>
+    <string name="stock_empty_title">No products with stock control</string>
+    <string name="stock_empty_message">Turn on stock control for a product to track it here.</string>
+    <string name="stock_empty_cta">Go to Products</string>
+    <string name="stock_no_results">No products found</string>
+    <string name="stock_current_label">Current stock: %1$s</string>
+    <string name="stock_current_title">Current stock</string>
+    <string name="stock_out_of_stock">Out of stock</string>
+    <string name="stock_product_out_of_stock_description">%1$s: out of stock</string>
+    <string name="stock_adjust_action">Adjust</string>
+    <string name="stock_adjust_action_for">Adjust stock of %1$s</string>
+    <string name="stock_adjust_title">Adjust stock</string>
+    <string name="stock_mode_add">Add stock</string>
+    <string name="stock_mode_remove">Remove stock</string>
+    <string name="stock_mode_set">Set quantity</string>
+    <string name="stock_amount_label">Quantity</string>
+    <string name="stock_amount_label_set">Counted stock</string>
+    <string name="stock_preview_label">New stock</string>
+    <string name="stock_confirm_action">Confirm adjustment</string>
+    <string name="stock_updated_title">Stock updated</string>
+    <string name="stock_error_zero">Enter a quantity greater than zero</string>
+    <string name="stock_error_negative">The quantity can\'t take stock below zero</string>
+    <string name="stock_error_not_tracked">Product doesn\'t track stock</string>
+    <string name="stock_error_not_found">Product unavailable</string>
+    <string name="stock_error_failed">Couldn\'t update the stock. Please try again.</string>
 </resources>

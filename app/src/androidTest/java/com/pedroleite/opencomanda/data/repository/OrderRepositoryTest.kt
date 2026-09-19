@@ -768,5 +768,5 @@ class OrderRepositoryTest {
         assertEquals(null, payment.cashSessionId)
     }
 
-    private fun productRepository() = ProductRepository(database.productDao())
+    private fun productRepository() = ProductRepository(database, database.productDao())
 }

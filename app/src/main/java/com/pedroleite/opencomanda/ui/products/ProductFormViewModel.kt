@@ -8,6 +8,7 @@ import com.pedroleite.opencomanda.data.local.entity.CategoryEntity
 import com.pedroleite.opencomanda.data.local.entity.ProductEntity
 import com.pedroleite.opencomanda.data.repository.CategoryRepository
 import com.pedroleite.opencomanda.data.repository.ProductRepository
+import com.pedroleite.opencomanda.data.repository.StockConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,6 +71,10 @@ class ProductFormViewModel(
 
     private var loadedProduct: ProductEntity? = null
 
+    /** The stock text shown when the form opened — compared on save so stock is only written back
+     *  when the operator actually edited it (see [ProductRepository.update]). */
+    private var loadedStockText: String = ""
+
     init {
         categoryRepository.getAll()
             .onEach { categories -> _uiState.update { it.copy(categories = categories) } }
@@ -86,6 +91,7 @@ class ProductFormViewModel(
                 return@launch
             }
             loadedProduct = product
+            loadedStockText = if (product.trackStock) formatQuantity(product.stockQuantity, Locale.getDefault()) else ""
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -95,11 +101,7 @@ class ProductFormViewModel(
                     hasCost = product.costCents != null,
                     costCents = product.costCents ?: 0L,
                     trackStock = product.trackStock,
-                    stockQuantityText = if (product.trackStock) {
-                        formatQuantity(product.stockQuantity, Locale.getDefault())
-                    } else {
-                        ""
-                    },
+                    stockQuantityText = loadedStockText,
                     categoryId = product.categoryId,
                 )
             }
@@ -137,16 +139,17 @@ class ProductFormViewModel(
             try {
                 val existing = loadedProduct
                 if (existing != null) {
+                    val stockEdited = state.trackStock != existing.trackStock ||
+                        (state.trackStock && state.stockQuantityText.trim() != loadedStockText)
                     repository.update(
                         existing.copy(
                             name = state.name,
                             description = state.description.ifBlank { null },
                             priceCents = state.priceCents,
                             costCents = if (state.hasCost) state.costCents else null,
-                            trackStock = state.trackStock,
-                            stockQuantity = stockQuantity,
                             categoryId = state.categoryId,
                         ),
+                        stockConfig = if (stockEdited) StockConfig(state.trackStock, stockQuantity) else null,
                     )
                 } else {
                     repository.create(

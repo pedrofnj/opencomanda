@@ -1,6 +1,7 @@
 package com.pedroleite.opencomanda.ui.navigation
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -14,16 +15,16 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.ui.comandas.NewComandaTestTags
 import com.pedroleite.opencomanda.ui.comandas.OpenComandasTestTags
+import com.pedroleite.opencomanda.ui.stock.StockTestTags
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Verifies the navigation graph end to end: Home is the start destination, each action leads
- * to its (placeholder) screen with the correct localized title, and back navigation returns
- * to Home. Reads expected labels from string resources so the test passes regardless of the
- * device's locale.
+ * Verifies the navigation graph end to end: Home is the start destination, every action leads
+ * to its real screen (never a placeholder), and back navigation returns to Home. Reads expected
+ * labels from string resources so the test passes regardless of the device's locale.
  */
 @RunWith(AndroidJUnit4::class)
 class NavigationTest {
@@ -34,6 +35,14 @@ class NavigationTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     private fun string(resId: Int): String = context.getString(resId)
+
+    /** Screens fed by Room render nothing until their first Flow emission, which can trail a click
+     *  by a few frames — so data-driven text is awaited rather than asserted immediately. */
+    private fun waitForText(text: String) {
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
 
     private fun setNavHostContent() {
         composeTestRule.setContent {
@@ -57,9 +66,8 @@ class NavigationTest {
 
         composeTestRule.onNodeWithText(string(R.string.action_fiado)).performScrollTo().performClick()
 
-        // The real Fiado screen shows its empty-state copy; it must never show the placeholder.
-        composeTestRule.onNodeWithText(string(R.string.fiado_empty_title)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+        // The real Fiado screen shows its empty-state copy.
+        waitForText(string(R.string.fiado_empty_title))
     }
 
     @Test
@@ -72,8 +80,7 @@ class NavigationTest {
 
         // The real Quick Sale screen shows its empty-products copy; it must never show the
         // placeholder text.
-        composeTestRule.onNodeWithText(string(R.string.quicksale_empty_products_title)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+        waitForText(string(R.string.quicksale_empty_products_title))
     }
 
     @Test
@@ -86,7 +93,6 @@ class NavigationTest {
 
         // The real New Comanda screen shows its name field; it must never show the placeholder.
         composeTestRule.onNodeWithText(string(R.string.comanda_field_name)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
     }
 
     @Test
@@ -100,7 +106,6 @@ class NavigationTest {
         // real, app-container-backed database is shared with other tests in this class, such as
         // the one that creates a Comanda, so it isn't guaranteed to be empty at this point.)
         composeTestRule.onNodeWithTag(OpenComandasTestTags.CREATE_FAB).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
     }
 
     @Test
@@ -129,7 +134,6 @@ class NavigationTest {
 
         // The real Products screen shows its FAB label; it must never show the placeholder copy.
         composeTestRule.onNodeWithText(string(R.string.product_add_fab)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
     }
 
     @Test
@@ -150,7 +154,6 @@ class NavigationTest {
 
         // The real Customers screen shows its FAB label; it must never show the placeholder copy.
         composeTestRule.onNodeWithText(string(R.string.customer_add_fab)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
     }
 
     @Test
@@ -181,7 +184,47 @@ class NavigationTest {
 
         // The real Cash Register screen shows its closed/empty-state copy; it must never show
         // the placeholder text.
-        composeTestRule.onNodeWithText(string(R.string.cash_register_empty_title)).assertExists()
-        composeTestRule.onNodeWithText(string(R.string.placeholder_message)).assertDoesNotExist()
+        waitForText(string(R.string.cash_register_empty_title))
+    }
+
+    @Test
+    fun navigatingToStockOpensTheRealScreenNotAPlaceholder() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_stock)).performScrollTo().performClick()
+
+        // The real Stock screen shows either its empty state or its search box, depending on
+        // whether this shared, app-container-backed database happens to hold stock-controlled
+        // products; it must never show the placeholder.
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(string(R.string.stock_empty_title)).fetchSemanticsNodes().isNotEmpty() ||
+                composeTestRule.onAllNodesWithTag(StockTestTags.SEARCH_FIELD).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun theStockEmptyStateLeadsOnToProducts() {
+        setNavHostContent()
+        composeTestRule.onNodeWithText(string(R.string.action_stock)).performScrollTo().performClick()
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithTag(StockTestTags.GO_TO_PRODUCTS_BUTTON).fetchSemanticsNodes().isNotEmpty() ||
+                composeTestRule.onAllNodesWithTag(StockTestTags.SEARCH_FIELD).fetchSemanticsNodes().isNotEmpty()
+        }
+        // Only meaningful while no product tracks stock, which is the case for this class's database.
+        if (composeTestRule.onAllNodesWithTag(StockTestTags.GO_TO_PRODUCTS_BUTTON).fetchSemanticsNodes().isEmpty()) return
+
+        composeTestRule.onNodeWithTag(StockTestTags.GO_TO_PRODUCTS_BUTTON).performClick()
+
+        waitForText(string(R.string.product_add_fab))
+    }
+
+    @Test
+    fun backNavigationFromStockReturnsToHome() {
+        setNavHostContent()
+
+        composeTestRule.onNodeWithText(string(R.string.action_stock)).performScrollTo().performClick()
+        composeTestRule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
+
+        composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true).assertExists()
     }
 }

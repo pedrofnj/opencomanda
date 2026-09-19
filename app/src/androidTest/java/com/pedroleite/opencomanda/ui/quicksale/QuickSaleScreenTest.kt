@@ -3,6 +3,7 @@ package com.pedroleite.opencomanda.ui.quicksale
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -67,7 +68,7 @@ class QuickSaleScreenTest {
     @Before
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
-        productRepository = ProductRepository(database.productDao())
+        productRepository = ProductRepository(database, database.productDao())
         categoryRepository = CategoryRepository(database.categoryDao())
         orderRepository = OrderRepository(
             database = database,
@@ -149,6 +150,44 @@ class QuickSaleScreenTest {
 
         waitForText("Espetinho")
         composeTestRule.onNodeWithText("Refrigerante").assertDoesNotExist()
+    }
+
+    @Test
+    fun aTrackedProductAtZeroIsLabelledOutOfStockAndCannotBeAdded() = runBlocking {
+        createProduct("Cerveja", trackStock = true, initialStockQuantity = 0.0)
+
+        setScreenContent()
+
+        waitForText("Cerveja")
+        composeTestRule.onNodeWithText(string(R.string.stock_out_of_stock)).assertExists()
+        composeTestRule.onNodeWithText("Cerveja").performClick()
+        // Nothing was added: there is no cart bar and no quantity stepper.
+        composeTestRule.onNodeWithTag(QuickSaleTestTags.CONTINUE_BUTTON).assertDoesNotExist()
+        composeTestRule.onAllNodesWithContentDescription(string(R.string.quicksale_increase_quantity, "Cerveja"))
+            .assertCountEquals(0)
+        Unit
+    }
+
+    @Test
+    fun aTrackedProductWithStockIsNotLabelledOutOfStock() = runBlocking {
+        createProduct("Cerveja", trackStock = true, initialStockQuantity = 3.0)
+
+        setScreenContent()
+
+        waitForText("Cerveja")
+        composeTestRule.onNodeWithText(string(R.string.stock_out_of_stock)).assertDoesNotExist()
+        Unit
+    }
+
+    @Test
+    fun anUntrackedProductIsNeverLabelledOutOfStock() = runBlocking {
+        createProduct("Agua", trackStock = false)
+
+        setScreenContent()
+
+        waitForText("Agua")
+        composeTestRule.onNodeWithText(string(R.string.stock_out_of_stock)).assertDoesNotExist()
+        Unit
     }
 
     @Test

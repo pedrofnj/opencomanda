@@ -21,6 +21,7 @@ import com.pedroleite.opencomanda.ui.products.CategoryManagementScreen
 import com.pedroleite.opencomanda.ui.products.ProductFormScreen
 import com.pedroleite.opencomanda.ui.products.ProductListScreen
 import com.pedroleite.opencomanda.ui.quicksale.QuickSaleScreen
+import com.pedroleite.opencomanda.ui.stock.StockScreen
 
 /** OpenComanda's top-level navigation graph. */
 @Composable
@@ -152,6 +153,12 @@ fun OpenComandaNavHost(navController: NavHostController = rememberNavController(
                     onBack = { navController.popBackStack() },
                 )
             }
+        }
+        composable(Destination.Stock.route) {
+            StockScreen(
+                onBack = { navController.popBackStack() },
+                onGoToProducts = { navController.navigate(Destination.Products.route) },
+            )
         }
         composable(Destination.CashRegister.route) {
             CashRegisterScreen(onBack = { navController.popBackStack() })

@@ -80,7 +80,7 @@ class ComandaDetailScreenTest {
             productDao = database.productDao(),
             cashSessionDao = database.cashSessionDao(),
         )
-        productRepository = ProductRepository(database.productDao())
+        productRepository = ProductRepository(database, database.productDao())
         categoryRepository = CategoryRepository(database.categoryDao())
         customerRepository = CustomerRepository(database.customerDao())
 
@@ -335,6 +335,28 @@ class ComandaDetailScreenTest {
 
         composeTestRule.onNodeWithText(string(R.string.comanda_cancel_dialog_title)).assertDoesNotExist()
         assertEquals(OrderStatus.OPEN, database.orderDao().getById(comandaId)!!.status)
+    }
+
+    @Test
+    fun aTrackedProductAtZeroIsLabelledOutOfStockAndCannotBeAddedToTheComanda() = runBlocking {
+        productRepository.create(
+            name = "Cerveja",
+            description = null,
+            priceCents = 800,
+            costCents = null,
+            trackStock = true,
+            initialStockQuantity = 0.0,
+        )
+        setScreenContent()
+        waitForText("Mesa 4")
+        composeTestRule.onNodeWithTag(ComandaDetailTestTags.ADD_PRODUCTS_BUTTON).performClick()
+        waitForText("Cerveja")
+
+        composeTestRule.onNodeWithText(string(R.string.stock_out_of_stock)).assertExists()
+        composeTestRule.onNodeWithText("Cerveja").performClick()
+
+        composeTestRule.waitForIdle()
+        assertTrue(database.orderItemDao().getItemsForOrder(comandaId).first().isEmpty())
     }
 
     // ---------------------------------------------------------------------------------------

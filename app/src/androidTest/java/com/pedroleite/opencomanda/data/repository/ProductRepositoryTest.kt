@@ -25,7 +25,7 @@ class ProductRepositoryTest {
     fun setUp() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
-        repository = ProductRepository(database.productDao())
+        repository = ProductRepository(database, database.productDao())
     }
 
     @After
@@ -101,13 +101,10 @@ class ProductRepositoryTest {
         )
 
         val original = repository.getById(id)!!
+        // Stock is changed only by passing an explicit StockConfig — see the stale-snapshot tests below.
         repository.update(
-            original.copy(
-                name = "Costela Premium",
-                priceCents = 3000,
-                trackStock = true,
-                stockQuantity = 5.0,
-            ),
+            original.copy(name = "Costela Premium", priceCents = 3000),
+            stockConfig = StockConfig(trackStock = true, quantity = 5.0),
         )
 
         val updated = repository.getById(id)!!
@@ -279,5 +276,90 @@ class ProductRepositoryTest {
         repository.update(original.copy(priceCents = 1200))
 
         assertEquals(categoryId, repository.getById(id)!!.categoryId)
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Editing a product must never silently overwrite stock / active with a stale snapshot
+    // ---------------------------------------------------------------------------------------
+
+    private suspend fun createTracked(stock: Double): Long = repository.create(
+        name = "Cerveja",
+        description = null,
+        priceCents = 800,
+        costCents = null,
+        trackStock = true,
+        initialStockQuantity = stock,
+    )
+
+    @Test
+    fun editingNameAndPriceKeepsTheCurrentStock() = runBlocking {
+        val id = createTracked(stock = 8.0)
+
+        repository.update(repository.getById(id)!!.copy(name = "Cerveja Lata", priceCents = 900))
+
+        val updated = repository.getById(id)!!
+        assertEquals("Cerveja Lata", updated.name)
+        assertEquals(900L, updated.priceCents)
+        assertEquals(8.0, updated.stockQuantity, 0.0)
+        assertEquals(true, updated.trackStock)
+    }
+
+    @Test
+    fun aStaleSnapshotCannotOverwriteStockChangedInTheMeantime() = runBlocking {
+        val id = createTracked(stock = 8.0)
+        val staleSnapshot = repository.getById(id)!! // What an edit form loaded when it opened.
+
+        repository.adjustStock(id, -3.0) // A sale happens while the form is open: 8 -> 5.
+        repository.update(staleSnapshot.copy(priceCents = 950))
+
+        assertEquals(5.0, repository.getById(id)!!.stockQuantity, 0.0)
+    }
+
+    @Test
+    fun aStaleSnapshotCannotOverwriteTheActiveFlag() = runBlocking {
+        val id = createTracked(stock = 8.0)
+        val staleSnapshot = repository.getById(id)!! // active = true
+
+        repository.setActive(id, false)
+        repository.update(staleSnapshot.copy(name = "Cerveja Long Neck"))
+
+        val updated = repository.getById(id)!!
+        assertEquals("Cerveja Long Neck", updated.name)
+        assertEquals(false, updated.active)
+    }
+
+    @Test
+    fun anIntentionalStockEditIsAppliedTogetherWithTheRestOfTheEdit() = runBlocking {
+        val id = createTracked(stock = 8.0)
+
+        repository.update(
+            repository.getById(id)!!.copy(priceCents = 1000),
+            stockConfig = StockConfig(trackStock = true, quantity = 20.0),
+        )
+
+        val updated = repository.getById(id)!!
+        assertEquals(1000L, updated.priceCents)
+        assertEquals(20.0, updated.stockQuantity, 0.0)
+    }
+
+    @Test
+    fun turningStockControlOffViaTheEditZeroesTheStockFigure() = runBlocking {
+        val id = createTracked(stock = 8.0)
+
+        repository.update(repository.getById(id)!!, stockConfig = StockConfig(trackStock = false, quantity = 8.0))
+
+        val updated = repository.getById(id)!!
+        assertEquals(false, updated.trackStock)
+        assertEquals(0.0, updated.stockQuantity, 0.0)
+    }
+
+    @Test
+    fun aNegativeStockEditIsRejected() = runBlocking {
+        val id = createTracked(stock = 8.0)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { repository.update(repository.getById(id)!!, StockConfig(true, -1.0)) }
+        }
+        assertEquals(8.0, repository.getById(id)!!.stockQuantity, 0.0)
     }
 }

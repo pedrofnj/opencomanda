@@ -51,7 +51,7 @@ class ProductListScreenTest {
     @Before
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
-        repository = ProductRepository(database.productDao())
+        repository = ProductRepository(database, database.productDao())
         categoryRepository = CategoryRepository(database.categoryDao())
     }
 

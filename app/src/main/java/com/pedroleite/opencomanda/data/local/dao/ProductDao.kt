@@ -24,16 +24,18 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE active = 1 ORDER BY name ASC")
     fun getActive(): Flow<List<ProductEntity>>
 
-    /** Active products in a given category — e.g. for a future Quick Sale category browser. */
-    @Query("SELECT * FROM products WHERE active = 1 AND categoryId = :categoryId ORDER BY name ASC")
-    fun getActiveByCategory(categoryId: Long): Flow<List<ProductEntity>>
-
-    /** Active products with no category — e.g. for a future Quick Sale "uncategorized" section. */
-    @Query("SELECT * FROM products WHERE active = 1 AND categoryId IS NULL ORDER BY name ASC")
-    fun getActiveUncategorized(): Flow<List<ProductEntity>>
+    /** Every product whose stock is being tracked, active or not — an inactive product can still
+     *  hold stock that needs correcting. Untracked products have no inventory, so they're excluded. */
+    @Query("SELECT * FROM products WHERE trackStock = 1 ORDER BY name ASC")
+    fun getTrackedStock(): Flow<List<ProductEntity>>
 
     @Query("UPDATE products SET active = :active, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setActive(id: Long, active: Boolean, updatedAt: Long)
+
+    /** Writes only the stock figure — a manual correction must never touch name, price, category
+     *  or the active flag. */
+    @Query("UPDATE products SET stockQuantity = :quantity, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun setStockQuantity(id: Long, quantity: Double, updatedAt: Long)
 
     @Query(
         "UPDATE products SET stockQuantity = stockQuantity - :quantity, updatedAt = :updatedAt WHERE id = :id",

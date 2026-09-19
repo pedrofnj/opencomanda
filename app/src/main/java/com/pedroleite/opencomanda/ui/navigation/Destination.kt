@@ -10,6 +10,7 @@ sealed class Destination(val route: String) {
     data object NewComanda : Destination("new_comanda")
     data object OpenComandas : Destination("open_comandas")
     data object Products : Destination("products")
+    data object Stock : Destination("stock")
     data object Customers : Destination("customers")
     data object Fiado : Destination("fiado")
     data object CashRegister : Destination("cash_register")

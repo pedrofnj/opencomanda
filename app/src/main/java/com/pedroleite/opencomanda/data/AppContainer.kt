@@ -18,7 +18,7 @@ import com.pedroleite.opencomanda.data.repository.ProductRepository
 class AppContainer(context: Context) {
     private val database: AppDatabase = AppDatabase.build(context)
 
-    val productRepository: ProductRepository by lazy { ProductRepository(database.productDao()) }
+    val productRepository: ProductRepository by lazy { ProductRepository(database, database.productDao()) }
 
     val categoryRepository: CategoryRepository by lazy { CategoryRepository(database.categoryDao()) }
 

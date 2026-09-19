@@ -277,8 +277,15 @@ class OrderRepository(
             // means a problem with one item never leaves earlier items half-persisted (the
             // surrounding transaction would roll those back anyway, but failing fast here keeps
             // the intent explicit).
-            val freshLines = lines.map { line ->
-                require(line.quantity > 0) { "Quantity must be greater than zero" }
+            // Lines are merged per product first: stock is checked against the TOTAL requested of
+            // each product, so two lines for the same product can't each pass on their own and
+            // together take stock below zero. (The Quick Sale cart already merges; this keeps the
+            // repository correct for any caller.)
+            lines.forEach { require(it.quantity > 0) { "Quantity must be greater than zero" } }
+            val mergedLines = lines
+                .groupBy { it.productId }
+                .map { (productId, sameProduct) -> CartLine(productId, sameProduct.sumOf { it.quantity }) }
+            val freshLines = mergedLines.map { line ->
                 val fresh = productDao.getById(line.productId)
                 if (fresh == null || !fresh.active) {
                     throw ProductUnavailableException(line.productId, fresh?.name.orEmpty())

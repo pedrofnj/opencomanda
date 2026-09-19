@@ -17,9 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,7 +27,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -52,6 +49,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.pedroleite.opencomanda.R
+import com.pedroleite.opencomanda.ui.components.SearchField
 import com.pedroleite.opencomanda.data.local.entity.CustomerEntity
 import com.pedroleite.opencomanda.ui.rememberAppContainer
 
@@ -128,12 +126,16 @@ fun CustomerListScreen(
                         .widthIn(max = 840.dp)
                         .align(Alignment.TopCenter),
                 ) {
-                    CustomerSearchField(
+                    SearchField(
                         query = uiState.searchQuery,
                         onQueryChange = viewModel::onSearchQueryChange,
+                        label = stringResource(R.string.customer_search_label),
+                        clearDescription = stringResource(R.string.customer_search_clear),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .testTag(CustomerListTestTags.SEARCH_FIELD),
+                        clearButtonModifier = Modifier.testTag(CustomerListTestTags.SEARCH_CLEAR),
                     )
                     CustomerStatusFilterRow(
                         selectedFilter = uiState.statusFilter,
@@ -154,38 +156,6 @@ fun CustomerListScreen(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CustomerSearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier.testTag(CustomerListTestTags.SEARCH_FIELD),
-        label = { Text(stringResource(R.string.customer_search_label)) },
-        singleLine = true,
-        leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
-        trailingIcon = if (query.isNotEmpty()) {
-            {
-                IconButton(
-                    onClick = { onQueryChange("") },
-                    modifier = Modifier.testTag(CustomerListTestTags.SEARCH_CLEAR),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.customer_search_clear),
-                    )
-                }
-            }
-        } else {
-            null
-        },
-    )
 }
 
 @Composable

@@ -12,7 +12,6 @@
     <string name="action_cash_register">Caixa</string>
     <string name="section_service">ATENDIMENTO</string>
     <string name="section_manage">GERENCIAR</string>
-    <string name="placeholder_message">Esta funcionalidade estará disponível em uma próxima etapa do OpenComanda.</string>
     <string name="action_back">Voltar</string>
     <string name="action_cancel">Cancelar</string>
 
@@ -123,7 +122,6 @@
     <string name="comanda_list_empty_cta">Nova comanda</string>
     <string name="comanda_item_count">%1$s itens</string>
     <string name="comanda_detail_add_products_action">Adicionar produtos</string>
-    <string name="comanda_detail_items_title">Itens</string>
     <string name="comanda_detail_empty_items_title">Comanda vazia</string>
     <string name="comanda_detail_empty_items_message">Adicione produtos para começar.</string>
     <string name="comanda_detail_close_action">Fechar comanda</string>
@@ -198,4 +196,32 @@
     <string name="fiado_error_overpayment">Valor maior que o saldo em aberto</string>
     <string name="fiado_error_payment_method_required">Selecione uma forma de pagamento</string>
     <string name="fiado_error_payment_failed">Não foi possível registrar o pagamento. Tente novamente.</string>
+
+    <string name="action_stock">Estoque</string>
+    <string name="stock_search_label">Buscar produtos</string>
+    <string name="stock_empty_title">Nenhum produto com controle de estoque</string>
+    <string name="stock_empty_message">Ative o controle de estoque em um produto para acompanhá-lo aqui.</string>
+    <string name="stock_empty_cta">Ir para Produtos</string>
+    <string name="stock_no_results">Nenhum produto encontrado</string>
+    <string name="stock_current_label">Estoque atual: %1$s</string>
+    <string name="stock_current_title">Estoque atual</string>
+    <string name="stock_out_of_stock">Sem estoque</string>
+    <string name="stock_product_out_of_stock_description">%1$s: sem estoque</string>
+    <string name="stock_adjust_action">Ajustar</string>
+    <string name="stock_adjust_action_for">Ajustar estoque de %1$s</string>
+    <string name="stock_adjust_title">Ajustar estoque</string>
+    <string name="stock_mode_add">Adicionar estoque</string>
+    <string name="stock_mode_remove">Remover estoque</string>
+    <string name="stock_mode_set">Definir quantidade</string>
+    <string name="stock_amount_label">Quantidade</string>
+    <string name="stock_amount_label_set">Estoque contado</string>
+    <string name="stock_preview_label">Novo estoque</string>
+    <string name="stock_change_arrow" translatable="false">%1$s → %2$s</string>
+    <string name="stock_confirm_action">Confirmar ajuste</string>
+    <string name="stock_updated_title">Estoque atualizado</string>
+    <string name="stock_error_zero">Informe uma quantidade maior que zero</string>
+    <string name="stock_error_negative">A quantidade não pode deixar o estoque negativo</string>
+    <string name="stock_error_not_tracked">Produto sem controle de estoque</string>
+    <string name="stock_error_not_found">Produto indisponível</string>
+    <string name="stock_error_failed">Não foi possível atualizar o estoque. Tente novamente.</string>
 </resources>

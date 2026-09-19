@@ -39,7 +39,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun allSevenActionsAreDisplayed() {
+    fun allEightActionsAreDisplayed() {
         setHomeContent(onNavigate = {})
 
         listOf(
@@ -48,6 +48,7 @@ class HomeScreenTest {
             R.string.action_open_comandas,
             R.string.action_cash_register,
             R.string.action_products,
+            R.string.action_stock,
             R.string.action_customers,
             R.string.action_fiado,
         ).forEach { resId ->
@@ -89,5 +90,15 @@ class HomeScreenTest {
         composeTestRule.onNodeWithText(string(R.string.action_fiado)).performScrollTo().performClick()
 
         assertEquals(Destination.Fiado, navigated)
+    }
+
+    @Test
+    fun tappingStockReportsTheStockDestination() {
+        var navigated: Destination? = null
+        setHomeContent(onNavigate = { navigated = it })
+
+        composeTestRule.onNodeWithText(string(R.string.action_stock)).performScrollTo().performClick()
+
+        assertEquals(Destination.Stock, navigated)
     }
 }

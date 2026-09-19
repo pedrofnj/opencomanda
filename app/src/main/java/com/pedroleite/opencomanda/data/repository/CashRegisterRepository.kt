@@ -85,7 +85,8 @@ class CashRegisterRepository(
 
     /**
      * Closes [sessionId] atomically: revalidates it is still OPEN, computes the final summary
-     * from persisted [PaymentEntity] rows (never trusting a total supplied by the caller),
+     * from persisted [PaymentEntity] and [DebtPaymentEntity] rows (never trusting a total supplied by
+     * the caller),
      * persists [countedCashCents] as the drawer's actual counted amount, and marks the session
      * CLOSED. Once closed, no new payment can attach to it (see [OrderRepository]'s lookup,
      * which only ever finds a session with [CashSessionStatus.OPEN]).
@@ -108,8 +109,8 @@ class CashRegisterRepository(
     }
 
     /** The current, authoritative summary for [sessionId] — computed fresh from persisted
-     *  payments, independent of whatever the dashboard last observed reactively. Used right
-     *  before showing the closing confirmation. */
+     *  payments and Fiado repayments, independent of whatever the dashboard last observed
+     *  reactively. [closeSession] builds the same summary inside its own transaction. */
     suspend fun currentSummary(sessionId: Long): CashSessionSummary {
         val session = cashSessionDao.getById(sessionId) ?: error("Cash session $sessionId not found")
         return buildSummary(session)

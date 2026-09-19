@@ -11,7 +11,6 @@
     <string name="action_cash_register">Caja</string>
     <string name="section_service">ATENCIÓN</string>
     <string name="section_manage">GESTIONAR</string>
-    <string name="placeholder_message">Esta función estará disponible en una próxima etapa de OpenComanda.</string>
     <string name="action_back">Volver</string>
     <string name="action_cancel">Cancelar</string>
 
@@ -122,7 +121,6 @@
     <string name="comanda_list_empty_cta">Nueva comanda</string>
     <string name="comanda_item_count">%1$s ítems</string>
     <string name="comanda_detail_add_products_action">Agregar productos</string>
-    <string name="comanda_detail_items_title">Ítems</string>
     <string name="comanda_detail_empty_items_title">Comanda vacía</string>
     <string name="comanda_detail_empty_items_message">Agrega productos para empezar.</string>
     <string name="comanda_detail_close_action">Cerrar comanda</string>
@@ -197,4 +195,31 @@
     <string name="fiado_error_overpayment">El valor es mayor que el saldo pendiente</string>
     <string name="fiado_error_payment_method_required">Selecciona una forma de pago</string>
     <string name="fiado_error_payment_failed">No se pudo registrar el pago. Inténtalo de nuevo.</string>
+
+    <string name="action_stock">Existencias</string>
+    <string name="stock_search_label">Buscar productos</string>
+    <string name="stock_empty_title">Ningún producto con control de existencias</string>
+    <string name="stock_empty_message">Activa el control de existencias en un producto para verlo aquí.</string>
+    <string name="stock_empty_cta">Ir a Productos</string>
+    <string name="stock_no_results">No se encontraron productos</string>
+    <string name="stock_current_label">Existencia actual: %1$s</string>
+    <string name="stock_current_title">Existencia actual</string>
+    <string name="stock_out_of_stock">Sin existencia</string>
+    <string name="stock_product_out_of_stock_description">%1$s: sin existencia</string>
+    <string name="stock_adjust_action">Ajustar</string>
+    <string name="stock_adjust_action_for">Ajustar existencias de %1$s</string>
+    <string name="stock_adjust_title">Ajustar existencias</string>
+    <string name="stock_mode_add">Agregar existencias</string>
+    <string name="stock_mode_remove">Quitar existencias</string>
+    <string name="stock_mode_set">Definir cantidad</string>
+    <string name="stock_amount_label">Cantidad</string>
+    <string name="stock_amount_label_set">Existencia contada</string>
+    <string name="stock_preview_label">Nueva existencia</string>
+    <string name="stock_confirm_action">Confirmar ajuste</string>
+    <string name="stock_updated_title">Existencias actualizadas</string>
+    <string name="stock_error_zero">Ingresa una cantidad mayor que cero</string>
+    <string name="stock_error_negative">La cantidad no puede dejar las existencias en negativo</string>
+    <string name="stock_error_not_tracked">Producto sin control de existencias</string>
+    <string name="stock_error_not_found">Producto no disponible</string>
+    <string name="stock_error_failed">No se pudieron actualizar las existencias. Inténtalo de nuevo.</string>
 </resources>

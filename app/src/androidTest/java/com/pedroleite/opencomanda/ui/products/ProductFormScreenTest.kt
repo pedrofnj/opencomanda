@@ -1,10 +1,13 @@
 package com.pedroleite.opencomanda.ui.products
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -44,7 +47,7 @@ class ProductFormScreenTest {
     @Before
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
-        repository = ProductRepository(database.productDao())
+        repository = ProductRepository(database, database.productDao())
         categoryRepository = CategoryRepository(database.categoryDao())
     }
 
@@ -150,6 +153,72 @@ class ProductFormScreenTest {
         val product = runBlocking { repository.getById(id) }
         assertEquals("Costela", product?.name)
         assertEquals(2000L, product?.priceCents)
+    }
+
+    private fun createTrackedProduct(stock: Double): Long = runBlocking {
+        repository.create(
+            name = "Cerveja",
+            description = null,
+            priceCents = 800,
+            costCents = null,
+            trackStock = true,
+            initialStockQuantity = stock,
+        )
+    }
+
+    @Test
+    fun editingTheNameOfATrackedProductKeepsItsStock() {
+        val id = createTrackedProduct(stock = 8.0)
+        var saved = false
+        setFormContent(productId = id, onSaved = { saved = true })
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText("Cerveja").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeTestRule.onNodeWithTag(ProductFormTestTags.NAME_FIELD).performTextReplacement("Cerveja Lata")
+        composeTestRule.onNodeWithTag(ProductFormTestTags.SAVE_BUTTON).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) { saved }
+        val product = runBlocking { repository.getById(id)!! }
+        assertEquals("Cerveja Lata", product.name)
+        assertEquals(8.0, product.stockQuantity, 0.0)
+    }
+
+    @Test
+    fun savingAnEditDoesNotUndoASaleMadeWhileTheFormWasOpen() {
+        val id = createTrackedProduct(stock = 8.0)
+        var saved = false
+        setFormContent(productId = id, onSaved = { saved = true })
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText("Cerveja").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // While the form is open showing 8, stock drops to 5 elsewhere (a sale, a Comanda item, a count).
+        runBlocking { repository.adjustStock(id, -3.0) }
+        composeTestRule.onNodeWithTag(ProductFormTestTags.NAME_FIELD).performTextReplacement("Cerveja Lata")
+        composeTestRule.onNodeWithTag(ProductFormTestTags.SAVE_BUTTON).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) { saved }
+        val product = runBlocking { repository.getById(id)!! }
+        assertEquals("Cerveja Lata", product.name)
+        assertEquals(5.0, product.stockQuantity, 0.0)
+    }
+
+    @Test
+    fun anIntentionalStockEditInTheFormIsStillSaved() {
+        val id = createTrackedProduct(stock = 8.0)
+        var saved = false
+        setFormContent(productId = id, onSaved = { saved = true })
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText("Cerveja").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeTestRule.onNodeWithTag(ProductFormTestTags.STOCK_QUANTITY_FIELD).performTextClearance()
+        composeTestRule.onNodeWithTag(ProductFormTestTags.STOCK_QUANTITY_FIELD).performTextInput("20")
+        composeTestRule.onNodeWithTag(ProductFormTestTags.SAVE_BUTTON).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) { saved }
+        assertEquals(20.0, runBlocking { repository.getById(id)!! }.stockQuantity, 0.0)
     }
 
     @Test
