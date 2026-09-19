@@ -17,6 +17,8 @@ import com.pedroleite.opencomanda.ui.comandas.NewComandaTestTags
 import com.pedroleite.opencomanda.ui.comandas.OpenComandasTestTags
 import com.pedroleite.opencomanda.ui.stock.StockTestTags
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
+import com.pedroleite.opencomanda.ui.waitForContentDescription
+import com.pedroleite.opencomanda.ui.waitForTextGone
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -119,11 +121,12 @@ class NavigationTest {
         composeTestRule.onNodeWithTag(NewComandaTestTags.CREATE_BUTTON).performClick()
 
         // Landed on the detail screen for the comanda just created — its name is now the
-        // top-bar title, and the creation form's fields are gone.
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Mesa 4").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText(string(R.string.comanda_field_name)).assertDoesNotExist()
+        // top-bar title, and the creation form's fields are gone. "Mesa 4" alone can't tell the
+        // two screens apart (the form's own name field holds that text too), so wait for what only
+        // the detail screen shows, then for the form to leave.
+        waitForText(string(R.string.comanda_detail_empty_items_title))
+        composeTestRule.waitForTextGone(string(R.string.comanda_field_name))
+        composeTestRule.onNodeWithText("Mesa 4").assertExists()
     }
 
     @Test
@@ -223,6 +226,8 @@ class NavigationTest {
         setNavHostContent()
 
         composeTestRule.onNodeWithText(string(R.string.action_stock)).performScrollTo().performClick()
+        // The Stock screen renders nothing, back button included, until its first data has loaded.
+        composeTestRule.waitForContentDescription(string(R.string.action_back))
         composeTestRule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
 
         composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true).assertExists()

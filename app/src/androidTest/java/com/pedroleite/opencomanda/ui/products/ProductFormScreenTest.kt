@@ -252,6 +252,8 @@ class ProductFormScreenTest {
 
         composeTestRule.onNodeWithTag(ProductFormTestTags.NAME_FIELD).performTextInput("Suco")
         composeTestRule.onNodeWithTag(ProductFormTestTags.CATEGORY_FIELD).performClick()
+        // The menu is a separate window, and its items depend on categories the form loads from Room.
+        waitForText("Bebidas")
         composeTestRule.onNodeWithText("Bebidas").performClick()
         composeTestRule.onNodeWithTag(ProductFormTestTags.SAVE_BUTTON).performClick()
 

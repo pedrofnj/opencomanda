@@ -15,6 +15,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.data.local.AppDatabase
 import com.pedroleite.opencomanda.data.repository.CategoryRepository
+import com.pedroleite.opencomanda.ui.waitForTag
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -90,6 +91,9 @@ class CategoryManagementScreenTest {
         setContent()
 
         composeTestRule.onNodeWithText(string(R.string.category_add_fab)).performClick()
+        // The dialog only appears once the ViewModel's first Room result has arrived, which the
+        // rule does not wait for.
+        composeTestRule.waitForTag(CategoryManagementTestTags.NAME_FIELD)
         composeTestRule.onNodeWithTag(CategoryManagementTestTags.NAME_FIELD).performTextInput("Espetinhos")
         composeTestRule.onNodeWithTag(CategoryManagementTestTags.SAVE_BUTTON).performClick()
 
@@ -103,9 +107,10 @@ class CategoryManagementScreenTest {
         setContent()
 
         composeTestRule.onNodeWithText(string(R.string.category_add_fab)).performClick()
+        composeTestRule.waitForTag(CategoryManagementTestTags.SAVE_BUTTON)
         composeTestRule.onNodeWithTag(CategoryManagementTestTags.SAVE_BUTTON).performClick()
 
-        composeTestRule.onNodeWithText(string(R.string.category_field_name_error)).assertExists()
+        waitForText(string(R.string.category_field_name_error))
         assertFalse(runBlocking { repository.getAll().first() }.isNotEmpty())
     }
 
@@ -117,6 +122,7 @@ class CategoryManagementScreenTest {
 
         composeTestRule.onNodeWithContentDescription(context.getString(R.string.category_edit_action, "Bebida"))
             .performClick()
+        composeTestRule.waitForTag(CategoryManagementTestTags.NAME_FIELD)
         composeTestRule.onNodeWithTag(CategoryManagementTestTags.NAME_FIELD).performTextClearance()
         composeTestRule.onNodeWithTag(CategoryManagementTestTags.NAME_FIELD).performTextInput("Bebidas")
         composeTestRule.onNodeWithTag(CategoryManagementTestTags.SAVE_BUTTON).performClick()

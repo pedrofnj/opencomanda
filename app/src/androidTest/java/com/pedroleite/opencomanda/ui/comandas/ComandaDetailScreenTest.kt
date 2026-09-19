@@ -22,6 +22,8 @@ import com.pedroleite.opencomanda.domain.DebtStatus
 import com.pedroleite.opencomanda.domain.OrderStatus
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
+import com.pedroleite.opencomanda.ui.waitForTagEnabled
+import com.pedroleite.opencomanda.ui.waitForTextGone
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -333,7 +335,8 @@ class ComandaDetailScreenTest {
         waitForText(string(R.string.comanda_cancel_dialog_title))
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.CANCEL_DISMISS).performClick()
 
-        composeTestRule.onNodeWithText(string(R.string.comanda_cancel_dialog_title)).assertDoesNotExist()
+        // The dialog is its own window, so its removal is not covered by the rule's idle wait.
+        composeTestRule.waitForTextGone(string(R.string.comanda_cancel_dialog_title))
         assertEquals(OrderStatus.OPEN, database.orderDao().getById(comandaId)!!.status)
     }
 
@@ -388,6 +391,9 @@ class ComandaDetailScreenTest {
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
         waitForText(string(R.string.comanda_detail_close_action))
 
+        // The Comanda's customer is loaded in a second step after the Comanda itself, and the Fiado
+        // action stays disabled until it arrives.
+        composeTestRule.waitForTagEnabled(ComandaDetailTestTags.FIADO_ACTION)
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).assertIsEnabled()
         Unit
     }
@@ -401,6 +407,7 @@ class ComandaDetailScreenTest {
         waitForText("Espetinho")
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
         waitForText(string(R.string.comanda_detail_close_action))
+        composeTestRule.waitForTagEnabled(ComandaDetailTestTags.FIADO_ACTION)
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).performClick()
 
         waitForText(string(R.string.comanda_fiado_confirm_title))
@@ -418,6 +425,7 @@ class ComandaDetailScreenTest {
         waitForText("Espetinho")
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
         waitForText(string(R.string.comanda_detail_close_action))
+        composeTestRule.waitForTagEnabled(ComandaDetailTestTags.FIADO_ACTION)
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).performClick()
         waitForText(string(R.string.comanda_fiado_confirm_title))
 
@@ -444,6 +452,7 @@ class ComandaDetailScreenTest {
         waitForText("Espetinho")
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.CLOSE_BUTTON).performClick()
         waitForText(string(R.string.comanda_detail_close_action))
+        composeTestRule.waitForTagEnabled(ComandaDetailTestTags.FIADO_ACTION)
         composeTestRule.onNodeWithTag(ComandaDetailTestTags.FIADO_ACTION).performClick()
         waitForText(string(R.string.comanda_fiado_confirm_title))
 

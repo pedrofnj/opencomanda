@@ -120,6 +120,8 @@ class NewComandaScreenTest {
 
         composeTestRule.onNodeWithTag(NewComandaTestTags.NAME_FIELD).performTextInput("Mesa 9")
         composeTestRule.onNodeWithTag(NewComandaTestTags.CUSTOMER_FIELD).performClick()
+        // The dropdown is a separate window that is only composed once expanded.
+        waitForText("Joao Silva")
         composeTestRule.onNodeWithText("Joao Silva").performClick()
         composeTestRule.onNodeWithTag(NewComandaTestTags.CREATE_BUTTON).performClick()
 

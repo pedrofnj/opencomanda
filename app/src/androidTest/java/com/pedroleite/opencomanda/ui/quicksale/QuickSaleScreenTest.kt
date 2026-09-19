@@ -21,6 +21,7 @@ import com.pedroleite.opencomanda.data.repository.OrderRepository
 import com.pedroleite.opencomanda.data.repository.ProductRepository
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
+import com.pedroleite.opencomanda.ui.waitForTextGone
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -460,7 +461,8 @@ class QuickSaleScreenTest {
 
         composeTestRule.onNodeWithText(string(R.string.quicksale_keep_selling_action)).performClick()
 
-        composeTestRule.onNodeWithText(string(R.string.quicksale_discard_sale_title)).assertDoesNotExist()
+        // The dialog is its own window, so its removal is not covered by the rule's idle wait.
+        composeTestRule.waitForTextGone(string(R.string.quicksale_discard_sale_title))
         composeTestRule.onNodeWithContentDescription(
             string(R.string.quicksale_quantity_label, "Espetinho", "1"),
         ).assertExists()
