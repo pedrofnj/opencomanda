@@ -151,4 +151,27 @@ class CategoryManagementScreenTest {
         }
         waitForContentDescription(activeDescription)
     }
+
+    @Test
+    fun reactivatingACategoryWhoseNameIsTakenShowsAnErrorAndKeepsItInactive() = runBlocking<Unit> {
+        val original = repository.create("Bebidas")
+        repository.setActive(original, false)
+        repository.create("Bebidas")
+        setContent()
+        val inactiveDescription = "Bebidas: " + string(R.string.category_status_inactive)
+        waitForContentDescription(inactiveDescription)
+
+        composeTestRule.onNodeWithContentDescription(inactiveDescription).performClick()
+
+        val errorTitle = string(R.string.category_activation_error_title)
+        waitForText(errorTitle)
+        composeTestRule.onNodeWithText(string(R.string.category_activation_duplicate_error)).assertExists()
+        assertFalse(repository.getById(original)!!.active)
+
+        composeTestRule.onNodeWithText(string(R.string.category_activation_error_dismiss)).performClick()
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(errorTitle).fetchSemanticsNodes().isEmpty()
+        }
+        assertFalse(repository.getById(original)!!.active)
+    }
 }

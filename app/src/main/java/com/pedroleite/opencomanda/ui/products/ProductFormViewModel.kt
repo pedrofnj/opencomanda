@@ -9,6 +9,7 @@ import com.pedroleite.opencomanda.data.local.entity.ProductEntity
 import com.pedroleite.opencomanda.data.repository.CategoryRepository
 import com.pedroleite.opencomanda.data.repository.ProductRepository
 import com.pedroleite.opencomanda.data.repository.StockConfig
+import com.pedroleite.opencomanda.data.repository.StockTrackingLockedException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-enum class ProductFormError { SAVE_FAILED, PRODUCT_NOT_FOUND }
+enum class ProductFormError { SAVE_FAILED, PRODUCT_NOT_FOUND, STOCK_TRACKING_LOCKED }
 
 data class ProductFormUiState(
     val editingProductId: Long? = null,
@@ -165,6 +166,8 @@ class ProductFormViewModel(
                 _uiState.update { it.copy(isSaving = false, saveComplete = true) }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: StockTrackingLockedException) {
+                _uiState.update { it.copy(isSaving = false, error = ProductFormError.STOCK_TRACKING_LOCKED) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSaving = false, error = ProductFormError.SAVE_FAILED) }
             }

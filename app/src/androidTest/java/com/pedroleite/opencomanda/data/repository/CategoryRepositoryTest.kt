@@ -131,4 +131,83 @@ class CategoryRepositoryTest {
     fun getByIdReturnsNullForAnUnknownCategory() = runBlocking {
         assertEquals(null, repository.getById(999_999))
     }
+
+    @Test
+    fun reactivatingIsRejectedWhenAnotherActiveCategoryHasTheSameName() = runBlocking<Unit> {
+        val original = repository.create("Bebidas")
+        repository.setActive(original, false)
+        val replacement = repository.create("Bebidas")
+
+        assertThrows(DuplicateCategoryNameException::class.java) {
+            runBlocking { repository.setActive(original, true) }
+        }
+
+        assertFalse("The original must stay inactive", repository.getById(original)!!.active)
+        assertTrue(repository.getById(replacement)!!.active)
+        assertEquals(1, repository.getActive().first().count { it.name == "Bebidas" })
+    }
+
+    @Test
+    fun reactivationDuplicateCheckIgnoresCaseAndSurroundingWhitespace() = runBlocking<Unit> {
+        val original = repository.create("Bebidas")
+        repository.setActive(original, false)
+        repository.create("  BEBIDAS ")
+
+        assertThrows(DuplicateCategoryNameException::class.java) {
+            runBlocking { repository.setActive(original, true) }
+        }
+    }
+
+    @Test
+    fun reactivatingIsAllowedWhenNoActiveCategoryHasTheSameName() = runBlocking<Unit> {
+        val original = repository.create("Bebidas")
+        repository.create("Petiscos")
+        repository.setActive(original, false)
+
+        repository.setActive(original, true)
+
+        assertTrue(repository.getById(original)!!.active)
+    }
+
+    @Test
+    fun reactivatingAnAlreadyActiveCategoryIsANoOp() = runBlocking<Unit> {
+        val id = repository.create("Bebidas")
+
+        repository.setActive(id, true)
+
+        assertTrue(repository.getById(id)!!.active)
+    }
+
+    @Test
+    fun deactivatingAlwaysSucceedsEvenWithSameNamedCategories() = runBlocking<Unit> {
+        val first = repository.create("Bebidas")
+        repository.setActive(first, false)
+        val second = repository.create("Bebidas")
+
+        repository.setActive(second, false)
+
+        assertFalse(repository.getById(second)!!.active)
+    }
+
+    @Test
+    fun withTwoInactiveDuplicatesOnlyOneCanBeReactivated() = runBlocking<Unit> {
+        val first = repository.create("Bebidas")
+        repository.setActive(first, false)
+        val second = repository.create("Bebidas")
+        repository.setActive(second, false)
+
+        repository.setActive(first, true)
+
+        assertThrows(DuplicateCategoryNameException::class.java) {
+            runBlocking { repository.setActive(second, true) }
+        }
+        assertEquals(1, repository.getActive().first().count { it.name == "Bebidas" })
+    }
+
+    @Test
+    fun reactivatingAnUnknownCategoryDoesNothing() = runBlocking<Unit> {
+        repository.setActive(999L, true)
+
+        assertTrue(repository.getAll().first().isEmpty())
+    }
 }

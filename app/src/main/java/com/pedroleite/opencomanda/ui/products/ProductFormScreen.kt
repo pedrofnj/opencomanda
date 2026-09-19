@@ -240,9 +240,14 @@ private fun ProductForm(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        if (uiState.error == ProductFormError.SAVE_FAILED) {
+        val errorText = when (uiState.error) {
+            ProductFormError.SAVE_FAILED -> stringResource(R.string.product_save_error)
+            ProductFormError.STOCK_TRACKING_LOCKED -> stringResource(R.string.product_stock_tracking_locked_error)
+            ProductFormError.PRODUCT_NOT_FOUND, null -> null
+        }
+        if (errorText != null) {
             Text(
-                text = stringResource(R.string.product_save_error),
+                text = errorText,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
             )

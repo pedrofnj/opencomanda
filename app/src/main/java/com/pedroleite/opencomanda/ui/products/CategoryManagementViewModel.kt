@@ -32,6 +32,8 @@ data class CategoryManagementUiState(
     val isLoading: Boolean = true,
     val categories: List<CategoryEntity> = emptyList(),
     val dialog: CategoryDialogState = CategoryDialogState(),
+    /** Why switching a category on or off failed — shown once, then dismissed by the operator. */
+    val activationError: CategoryFormError? = null,
 )
 
 /** Backs the lightweight "Manage categories" screen: a flat list plus a single create/rename
@@ -39,12 +41,19 @@ data class CategoryManagementUiState(
 class CategoryManagementViewModel(private val repository: CategoryRepository) : ViewModel() {
 
     private val dialog = MutableStateFlow(CategoryDialogState())
+    private val activationError = MutableStateFlow<CategoryFormError?>(null)
 
     val uiState: StateFlow<CategoryManagementUiState> = combine(
         repository.getAll(),
         dialog,
-    ) { categories, dialog ->
-        CategoryManagementUiState(isLoading = false, categories = categories, dialog = dialog)
+        activationError,
+    ) { categories, dialog, activationError ->
+        CategoryManagementUiState(
+            isLoading = false,
+            categories = categories,
+            dialog = dialog,
+            activationError = activationError,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -95,7 +104,19 @@ class CategoryManagementViewModel(private val repository: CategoryRepository) : 
 
     fun setActive(categoryId: Long, active: Boolean) {
         viewModelScope.launch {
-            repository.setActive(categoryId, active)
+            try {
+                repository.setActive(categoryId, active)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: DuplicateCategoryNameException) {
+                activationError.value = CategoryFormError.DUPLICATE_NAME
+            } catch (e: Exception) {
+                activationError.value = CategoryFormError.SAVE_FAILED
+            }
         }
+    }
+
+    fun dismissActivationError() {
+        activationError.value = null
     }
 }

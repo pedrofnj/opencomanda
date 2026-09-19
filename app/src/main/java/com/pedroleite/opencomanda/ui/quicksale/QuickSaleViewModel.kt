@@ -10,6 +10,7 @@ import com.pedroleite.opencomanda.data.repository.InsufficientStockException
 import com.pedroleite.opencomanda.data.repository.OrderRepository
 import com.pedroleite.opencomanda.data.repository.ProductRepository
 import com.pedroleite.opencomanda.data.repository.ProductUnavailableException
+import com.pedroleite.opencomanda.data.repository.QuickSaleReceiptLine
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import com.pedroleite.opencomanda.domain.QuickSaleCart
 import com.pedroleite.opencomanda.domain.QuickSaleCartLine
@@ -34,9 +35,10 @@ data class QuickSaleErrorInfo(
     val availableQuantity: Double? = null,
 )
 
-/** A completed sale, kept only long enough to show the success summary. */
+/** A completed sale, kept only long enough to show the success summary. Built from the persisted
+ *  sale ([QuickSaleReceipt]), never from the in-memory cart. */
 data class QuickSaleSummary(
-    val lines: List<QuickSaleCartLine>,
+    val lines: List<QuickSaleReceiptLine>,
     val totalCents: Long,
     val paymentMethod: PaymentMethod,
 )
@@ -180,13 +182,27 @@ class QuickSaleViewModel(
         screenState.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
             try {
-                orderRepository.confirmQuickSale(
+                val orderId = orderRepository.confirmQuickSale(
                     lines = lines.map { CartLine(productId = it.productId, quantity = it.quantity) },
                     method = method,
                     isFiado = false,
                     customerId = null,
                 )
-                val summary = QuickSaleSummary(lines = lines, totalCents = state.totalCents, paymentMethod = method)
+                // The sale is already committed at this point. If reading it back fails, still finish
+                // the sale (without a summary) rather than reporting a save error and inviting a
+                // second, duplicate sale.
+                val summary = try {
+                    val receipt = orderRepository.getQuickSaleReceipt(orderId)
+                    QuickSaleSummary(
+                        lines = receipt.lines,
+                        totalCents = receipt.totalCents,
+                        paymentMethod = receipt.paymentMethod,
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
                 cartLines.value = emptyList()
                 screenState.value = ScreenState(phase = QuickSalePhase.SUCCESS, completedSale = summary)
             } catch (e: CancellationException) {

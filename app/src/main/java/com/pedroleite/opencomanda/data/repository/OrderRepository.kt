@@ -21,12 +21,30 @@ import com.pedroleite.opencomanda.domain.OrderTotalCalculator
 import com.pedroleite.opencomanda.domain.OrderType
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 /** A single requested line when confirming a Quick Sale. Deliberately just an id + quantity,
  *  not a [ProductEntity] snapshot: [OrderRepository.confirmQuickSale] re-reads the real row by
  *  [productId] and revalidates it before trusting anything about it (name, price, stock), so a
  *  richer snapshot here would only invite accidentally trusting stale cart-time data. */
 data class CartLine(val productId: Long, val quantity: Double)
+
+/** One line of a completed sale exactly as persisted — name and unit price are the snapshot stored
+ *  on the [OrderItemEntity], not whatever the product looks like now or what a cart once showed. */
+data class QuickSaleReceiptLine(
+    val productName: String,
+    val unitPriceCents: Long,
+    val quantity: Double,
+    val subtotalCents: Long,
+)
+
+/** A completed Quick Sale as persisted: its items and the amount actually paid. [totalCents] is the
+ *  [PaymentEntity.amountCents] recorded for the sale. */
+data class QuickSaleReceipt(
+    val lines: List<QuickSaleReceiptLine>,
+    val totalCents: Long,
+    val paymentMethod: PaymentMethod,
+)
 
 /** Thrown when confirming a Quick Sale would take a tracked product's stock below zero. */
 class InsufficientStockException(
@@ -261,6 +279,25 @@ class OrderRepository(
      * A non-Fiado sale's payment is attached to whichever cash session is OPEN at this exact
      * moment, if any (see [currentOpenCashSessionId]) — never a session id supplied by the caller.
      */
+    /**
+     * The authoritative summary of a confirmed Quick Sale, read back from the persisted order,
+     * items and payment — what the success screen must show, since [confirmQuickSale] re-reads
+     * each product's price at confirmation and so may differ from the cart the operator built.
+     * Safe to call after the transaction has committed: the order is already CLOSED, and every
+     * mutation requires an OPEN order.
+     */
+    suspend fun getQuickSaleReceipt(orderId: Long): QuickSaleReceipt {
+        val payment = paymentDao.getForOrder(orderId).first().singleOrNull()
+            ?: error("Order $orderId has no single payment — not a paid Quick Sale")
+        return QuickSaleReceipt(
+            lines = orderItemDao.getItemsForOrderOnce(orderId).map {
+                QuickSaleReceiptLine(it.productNameSnapshot, it.unitPriceCentsSnapshot, it.quantity, it.subtotalCents)
+            },
+            totalCents = payment.amountCents,
+            paymentMethod = payment.method,
+        )
+    }
+
     suspend fun confirmQuickSale(
         lines: List<CartLine>,
         method: PaymentMethod?,

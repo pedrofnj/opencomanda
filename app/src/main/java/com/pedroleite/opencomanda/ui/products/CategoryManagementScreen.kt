@@ -129,6 +129,26 @@ fun CategoryManagementScreen(
             onDismiss = viewModel::dismissDialog,
         )
     }
+
+    uiState.activationError?.let { error ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissActivationError,
+            title = { Text(stringResource(R.string.category_activation_error_title)) },
+            text = {
+                Text(
+                    when (error) {
+                        CategoryFormError.DUPLICATE_NAME -> stringResource(R.string.category_activation_duplicate_error)
+                        CategoryFormError.SAVE_FAILED -> stringResource(R.string.category_save_error)
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissActivationError) {
+                    Text(stringResource(R.string.category_activation_error_dismiss))
+                }
+            },
+        )
+    }
 }
 
 @Composable

@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.pedroleite.opencomanda.data.local.AppDatabase
 import com.pedroleite.opencomanda.data.local.dao.ProductDao
 import com.pedroleite.opencomanda.data.local.entity.ProductEntity
+import com.pedroleite.opencomanda.domain.OrderStatus
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -24,6 +25,13 @@ data class StockChange(
 
 /** Stock settings applied together with a product edit, only when the operator actually changed them. */
 data class StockConfig(val trackStock: Boolean, val quantity: Double)
+
+/** Thrown when stock control would be switched on or off for a product that is on an open Comanda:
+ *  whether that Comanda's items reserved stock depends on the setting at the time they were added,
+ *  so flipping it now would make cancelling or editing the Comanda restore stock that was never
+ *  taken (or skip stock that was). */
+class StockTrackingLockedException(val productId: Long) :
+    RuntimeException("Stock control for product $productId cannot change while it is on an open comanda")
 
 class ProductRepository(
     private val database: AppDatabase,
@@ -78,7 +86,13 @@ class ProductRepository(
      * new price would silently undo every sale made while the form was open.
      *
      * Stock is only changed when [stockConfig] is given — i.e. the operator intentionally edited
-     * the stock section — and then in the same transaction as the rest of the edit.
+     * the stock section — and then in the same transaction as the rest of the edit. Switching stock
+     * control on or off is refused while the product is on an OPEN Comanda (see
+     * [StockTrackingLockedException]); changing the counted quantity of an already tracked
+     * product is always allowed.
+     *
+     * @throws StockTrackingLockedException if [stockConfig] would flip stock control for a product
+     * that is on an open Comanda.
      */
     suspend fun update(product: ProductEntity, stockConfig: StockConfig? = null) {
         require(product.name.isNotBlank()) { "Product name must not be blank" }
@@ -89,6 +103,11 @@ class ProductRepository(
         }
         database.withTransaction {
             val current = productDao.getById(product.id) ?: error("Product ${product.id} not found")
+            if (stockConfig != null && stockConfig.trackStock != current.trackStock &&
+                productDao.countOrderItemsInOrdersWithStatus(current.id, OrderStatus.OPEN) > 0
+            ) {
+                throw StockTrackingLockedException(current.id)
+            }
             val edited = current.copy(
                 name = product.name,
                 description = product.description,

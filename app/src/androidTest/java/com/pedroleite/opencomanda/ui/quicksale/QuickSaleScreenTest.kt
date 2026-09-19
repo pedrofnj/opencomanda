@@ -14,12 +14,14 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pedroleite.opencomanda.R
+import com.pedroleite.opencomanda.core.Money
 import com.pedroleite.opencomanda.data.local.AppDatabase
 import com.pedroleite.opencomanda.data.repository.CategoryRepository
 import com.pedroleite.opencomanda.data.repository.OrderRepository
 import com.pedroleite.opencomanda.data.repository.ProductRepository
 import com.pedroleite.opencomanda.domain.PaymentMethod
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
@@ -28,6 +30,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.Locale
 
 /**
  * Verifies the Quick Sale screen end to end against a real (in-memory) Room database: product
@@ -481,5 +484,36 @@ class QuickSaleScreenTest {
 
         assertTrue(backInvoked)
         waitForContentDescription(string(R.string.quicksale_add_action, "Espetinho"))
+    }
+
+    @Test
+    fun successScreenShowsThePersistedPriceWhenItChangedAfterTheCartWasBuilt(): Unit = runBlocking {
+        val id = createProduct("Espetinho", priceCents = 1000)
+
+        setScreenContent()
+        waitForText("Espetinho")
+        composeTestRule.onNodeWithText("Espetinho").performClick()
+        waitForContentDescription(string(R.string.quicksale_increase_quantity, "Espetinho"))
+        composeTestRule.onNodeWithTag(QuickSaleTestTags.CONTINUE_BUTTON).performClick()
+        waitForText(string(R.string.quicksale_review_title))
+        composeTestRule.onNodeWithTag(QuickSaleTestTags.paymentMethodChip(PaymentMethod.CASH)).performClick()
+
+        // The price changes after the cart captured 10,00 but before the sale is confirmed.
+        productRepository.update(productRepository.getById(id)!!.copy(priceCents = 1200))
+        composeTestRule.onNodeWithTag(QuickSaleTestTags.CONFIRM_BUTTON).performClick()
+
+        waitForText(string(R.string.quicksale_sale_completed))
+        val persistedTotal = Money(1200).format(Locale.getDefault())
+        val staleTotal = Money(1000).format(Locale.getDefault())
+        assertTrue(
+            "The success screen must show the persisted total",
+            composeTestRule.onAllNodesWithText(persistedTotal).fetchSemanticsNodes().isNotEmpty(),
+        )
+        assertTrue(
+            "The success screen must not show the stale cart price",
+            composeTestRule.onAllNodesWithText(staleTotal).fetchSemanticsNodes().isEmpty(),
+        )
+        val payment = database.paymentDao().getForOrder(1L).first().single()
+        assertTrue(payment.amountCents == 1200L)
     }
 }

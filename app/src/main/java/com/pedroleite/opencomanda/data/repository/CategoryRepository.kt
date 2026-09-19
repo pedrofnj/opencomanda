@@ -35,8 +35,16 @@ class CategoryRepository(private val categoryDao: CategoryDao) {
     }
 
     /** Soft-disable: categories are never physically deleted, and deactivating one never touches
-     *  the products already assigned to it — see [ProductRepository]. */
+     *  the products already assigned to it — see [ProductRepository]. Deactivating always
+     *  succeeds; reactivating repeats the active-name check of [create] and [rename], so two
+     *  active categories can never share a name.
+     *
+     *  @throws DuplicateCategoryNameException when reactivating would duplicate an active name. */
     suspend fun setActive(id: Long, active: Boolean) {
+        if (active) {
+            val existing = categoryDao.getById(id) ?: return
+            checkNoActiveDuplicate(existing.name, excludeId = id)
+        }
         categoryDao.setActive(id, active, System.currentTimeMillis())
     }
 

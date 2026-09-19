@@ -14,12 +14,14 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.data.local.AppDatabase
 import com.pedroleite.opencomanda.data.repository.CategoryRepository
+import com.pedroleite.opencomanda.data.repository.OrderRepository
 import com.pedroleite.opencomanda.data.repository.ProductRepository
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -274,5 +276,50 @@ class ProductFormScreenTest {
         composeTestRule.waitUntil(timeoutMillis = 5_000) { saved }
 
         assertEquals(categoryId, repository.getById(id)?.categoryId)
+    }
+
+    @Test
+    fun enablingStockControlOnAProductOnAnOpenComandaShowsAnErrorAndChangesNothing() {
+        val id = runBlocking {
+            repository.create(
+                name = "Espetinho",
+                description = null,
+                priceCents = 1000,
+                costCents = null,
+                trackStock = false,
+                initialStockQuantity = 0.0,
+            )
+        }
+        runBlocking {
+            val orders = OrderRepository(
+                database = database,
+                orderDao = database.orderDao(),
+                orderItemDao = database.orderItemDao(),
+                paymentDao = database.paymentDao(),
+                debtDao = database.debtDao(),
+                productDao = database.productDao(),
+                cashSessionDao = database.cashSessionDao(),
+            )
+            val comanda = orders.createComanda(customerId = null, displayName = "Mesa 1")
+            orders.addComandaItem(comanda, id, 3.0)
+        }
+        var saved = false
+        setFormContent(productId = id, onSaved = { saved = true })
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText("Espetinho").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeTestRule.onNodeWithTag(ProductFormTestTags.TRACK_STOCK_TOGGLE).performClick()
+        composeTestRule.onNodeWithTag(ProductFormTestTags.STOCK_QUANTITY_FIELD).performTextInput("10")
+        composeTestRule.onNodeWithTag(ProductFormTestTags.SAVE_BUTTON).performClick()
+
+        val errorText = string(R.string.product_stock_tracking_locked_error)
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(errorText).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertFalse(saved)
+        val product = runBlocking { repository.getById(id)!! }
+        assertFalse(product.trackStock)
+        assertEquals(0.0, product.stockQuantity, 0.0)
     }
 }

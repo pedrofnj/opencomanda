@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.pedroleite.opencomanda.data.local.entity.ProductEntity
+import com.pedroleite.opencomanda.domain.OrderStatus
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -28,6 +29,15 @@ interface ProductDao {
      *  hold stock that needs correcting. Untracked products have no inventory, so they're excluded. */
     @Query("SELECT * FROM products WHERE trackStock = 1 ORDER BY name ASC")
     fun getTrackedStock(): Flow<List<ProductEntity>>
+
+    /** How many order lines for [productId] sit in orders currently in [status] — used to tell whether
+     *  a product still holds stock reserved by an open Comanda (see
+     *  [com.pedroleite.opencomanda.data.repository.ProductRepository.update]). */
+    @Query(
+        "SELECT COUNT(*) FROM order_items oi INNER JOIN orders o ON o.id = oi.orderId " +
+            "WHERE oi.productId = :productId AND o.status = :status",
+    )
+    suspend fun countOrderItemsInOrdersWithStatus(productId: Long, status: OrderStatus): Int
 
     @Query("UPDATE products SET active = :active, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setActive(id: Long, active: Boolean, updatedAt: Long)

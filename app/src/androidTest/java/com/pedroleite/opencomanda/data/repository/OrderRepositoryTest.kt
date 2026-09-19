@@ -769,4 +769,60 @@ class OrderRepositoryTest {
     }
 
     private fun productRepository() = ProductRepository(database, database.productDao())
+
+    @Test
+    fun quickSaleReceiptReflectsThePersistedPriceAndPaymentNotTheStaleCart() = runBlocking<Unit> {
+        val stale = product() // priceCents = 1000, what a cart built earlier would show
+        productRepository().update(stale.copy(priceCents = 1200))
+
+        val orderId = orderRepository.confirmQuickSale(
+            lines = listOf(CartLine(stale.id, 2.0)),
+            method = PaymentMethod.PIX,
+            isFiado = false,
+            customerId = null,
+        )
+        val receipt = orderRepository.getQuickSaleReceipt(orderId)
+
+        val line = receipt.lines.single()
+        assertEquals("Espetinho", line.productName)
+        assertEquals(1200L, line.unitPriceCents)
+        assertEquals(2.0, line.quantity, 0.0)
+        assertEquals(2400L, line.subtotalCents)
+        assertEquals(2400L, receipt.totalCents)
+        assertEquals(PaymentMethod.PIX, receipt.paymentMethod)
+        assertEquals(
+            "The receipt total must equal the recorded payment",
+            database.paymentDao().getForOrder(orderId).first().single().amountCents,
+            receipt.totalCents,
+        )
+    }
+
+    @Test
+    fun quickSaleReceiptWithSeveralProductsSumsEveryPersistedLine() = runBlocking<Unit> {
+        val now = System.currentTimeMillis()
+        val coca = database.productDao().insert(
+            ProductEntity(name = "Coca", priceCents = 500, createdAt = now, updatedAt = now),
+        )
+
+        val orderId = orderRepository.confirmQuickSale(
+            lines = listOf(CartLine(productId, 1.0), CartLine(coca, 3.0)),
+            method = PaymentMethod.CASH,
+            isFiado = false,
+            customerId = null,
+        )
+        val receipt = orderRepository.getQuickSaleReceipt(orderId)
+
+        assertEquals(2, receipt.lines.size)
+        assertEquals(receipt.lines.sumOf { it.subtotalCents }, receipt.totalCents)
+        assertEquals(2500L, receipt.totalCents)
+    }
+
+    @Test
+    fun quickSaleReceiptIsRejectedForAnOrderWithoutASinglePayment() = runBlocking<Unit> {
+        val comanda = orderRepository.createComanda(customerId = null, displayName = "Mesa 9")
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { orderRepository.getQuickSaleReceipt(comanda) }
+        }
+    }
 }

@@ -32,6 +32,7 @@
     <string name="product_field_stock_quantity_error">Ingresa una cantidad válida</string>
     <string name="product_save">Guardar</string>
     <string name="product_save_error">No se pudo guardar el producto. Inténtalo de nuevo.</string>
+    <string name="product_stock_tracking_locked_error">Este producto está en una comanda abierta. Cierra o cancela la comanda antes de activar o desactivar el control de inventario.</string>
     <string name="product_status_active">Activo</string>
     <string name="product_status_inactive">Inactivo</string>
     <string name="product_stock_label">Existencia: %1$s</string>
@@ -53,6 +54,9 @@
     <string name="category_duplicate_error">Ya existe una categoría activa con ese nombre</string>
     <string name="category_save">Guardar</string>
     <string name="category_save_error">No se pudo guardar la categoría. Inténtalo de nuevo.</string>
+    <string name="category_activation_error_title">No se pudo reactivar</string>
+    <string name="category_activation_duplicate_error">Ya existe una categoría activa con ese nombre. Cambia el nombre de una de ellas antes de reactivar.</string>
+    <string name="category_activation_error_dismiss">Entendido</string>
     <string name="category_status_active">Activa</string>
     <string name="category_status_inactive">Inactiva</string>
     <string name="category_edit_action">Editar %1$s</string>

@@ -32,6 +32,7 @@
     <string name="product_field_stock_quantity_error">Enter a valid quantity</string>
     <string name="product_save">Save</string>
     <string name="product_save_error">Couldn\'t save the product. Please try again.</string>
+    <string name="product_stock_tracking_locked_error">This product is on an open comanda. Close or cancel the comanda before turning stock control on or off.</string>
     <string name="product_status_active">Active</string>
     <string name="product_status_inactive">Inactive</string>
     <string name="product_stock_label">Stock: %1$s</string>
@@ -53,6 +54,9 @@
     <string name="category_duplicate_error">An active category with this name already exists</string>
     <string name="category_save">Save</string>
     <string name="category_save_error">Couldn\'t save the category. Please try again.</string>
+    <string name="category_activation_error_title">Couldn\'t reactivate</string>
+    <string name="category_activation_duplicate_error">An active category with this name already exists. Rename one of them before reactivating.</string>
+    <string name="category_activation_error_dismiss">Got it</string>
     <string name="category_status_active">Active</string>
     <string name="category_status_inactive">Inactive</string>
     <string name="category_edit_action">Edit %1$s</string>

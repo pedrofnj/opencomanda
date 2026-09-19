@@ -349,4 +349,133 @@ class StockRegressionRepositoryTest {
         orders.cancelComanda(mesa5)
         assertEquals(before, stockOf(espetinho) to stockOf(coca))
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Stock control cannot be switched on/off while the product is on an open Comanda: whether an
+    // item reserved stock depends on the setting when it was added, so a later flip would make
+    // cancelling or editing the Comanda restore stock that was never taken.
+    // ---------------------------------------------------------------------------------------
+
+    private suspend fun setTracking(id: Long, track: Boolean, quantity: Double = 0.0) =
+        products.update(products.getById(id)!!, StockConfig(track, quantity))
+
+    @Test
+    fun enablingStockControlOnAProductOnAnOpenComandaIsRejectedAndChangesNothing() = runBlocking<Unit> {
+        val espetinho = untracked("Espetinho", 1000)
+        val mesa = orders.createComanda(null, "Mesa 1")
+        orders.addComandaItem(mesa, espetinho, 3.0)
+
+        val error = assertThrows(StockTrackingLockedException::class.java) {
+            runBlocking { setTracking(espetinho, true, 10.0) }
+        }
+
+        assertEquals(espetinho, error.productId)
+        val after = products.getById(espetinho)!!
+        assertEquals(false, after.trackStock)
+        assertEquals(0.0, after.stockQuantity, 0.0)
+    }
+
+    @Test
+    fun disablingStockControlOnAProductOnAnOpenComandaIsRejectedAndKeepsTheReservation() = runBlocking<Unit> {
+        val coca = tracked("Coca", 500, 10.0)
+        val mesa = orders.createComanda(null, "Mesa 1")
+        orders.addComandaItem(mesa, coca, 3.0) // 10 -> 7
+
+        assertThrows(StockTrackingLockedException::class.java) {
+            runBlocking { setTracking(coca, false) }
+        }
+
+        val after = products.getById(coca)!!
+        assertEquals(true, after.trackStock)
+        assertEquals(7.0, after.stockQuantity, 0.0)
+        orders.cancelComanda(mesa)
+        assertEquals(10.0, stockOf(coca), 0.0)
+    }
+
+    @Test
+    fun aRejectedFlipLeavesNoPhantomStockWhenTheComandaIsCancelledOrEdited() = runBlocking<Unit> {
+        val espetinho = untracked("Espetinho", 1000)
+        val mesa = orders.createComanda(null, "Mesa 1")
+        orders.addComandaItem(mesa, espetinho, 3.0)
+        assertThrows(StockTrackingLockedException::class.java) { runBlocking { setTracking(espetinho, true, 10.0) } }
+
+        orders.decrementComandaItem(mesa, espetinho)
+        orders.cancelComanda(mesa)
+
+        val after = products.getById(espetinho)!!
+        assertEquals(false, after.trackStock)
+        assertEquals(0.0, after.stockQuantity, 0.0)
+    }
+
+    @Test
+    fun stockControlCanBeSwitchedOnceTheComandaIsCancelled() = runBlocking<Unit> {
+        val espetinho = untracked("Espetinho", 1000)
+        val mesa = orders.createComanda(null, "Mesa 1")
+        orders.addComandaItem(mesa, espetinho, 3.0)
+        orders.cancelComanda(mesa)
+
+        setTracking(espetinho, true, 10.0)
+
+        val after = products.getById(espetinho)!!
+        assertEquals(true, after.trackStock)
+        assertEquals(10.0, after.stockQuantity, 0.0)
+    }
+
+    @Test
+    fun stockControlCanBeSwitchedOnceTheComandaIsClosed() = runBlocking<Unit> {
+        val espetinho = untracked("Espetinho", 1000)
+        val mesa = orders.createComanda(null, "Mesa 1")
+        orders.addComandaItem(mesa, espetinho, 3.0)
+        orders.closeOrderWithPayment(mesa, PaymentMethod.CASH)
+
+        setTracking(espetinho, true, 10.0)
+
+        assertEquals(true, products.getById(espetinho)!!.trackStock)
+    }
+
+    @Test
+    fun aQuickSaleNeverBlocksSwitchingStockControl() = runBlocking<Unit> {
+        val espetinho = untracked("Espetinho", 1000)
+        quickSale(CartLine(espetinho, 1.0))
+
+        setTracking(espetinho, true, 10.0)
+
+        assertEquals(true, products.getById(espetinho)!!.trackStock)
+    }
+
+    @Test
+    fun anotherProductsOpenComandaDoesNotBlockSwitchingStockControl() = runBlocking<Unit> {
+        val espetinho = untracked("Espetinho", 1000)
+        val coca = untracked("Coca", 500)
+        val mesa = orders.createComanda(null, "Mesa 1")
+        orders.addComandaItem(mesa, coca, 1.0)
+
+        setTracking(espetinho, true, 10.0)
+
+        assertEquals(true, products.getById(espetinho)!!.trackStock)
+    }
+
+    @Test
+    fun changingTheCountOfAnAlreadyTrackedProductOnAnOpenComandaIsStillAllowed() = runBlocking<Unit> {
+        val coca = tracked("Coca", 500, 10.0)
+        val mesa = orders.createComanda(null, "Mesa 1")
+        orders.addComandaItem(mesa, coca, 3.0) // 10 -> 7
+
+        setTracking(coca, true, 20.0)
+
+        assertEquals(20.0, stockOf(coca), 0.0)
+        orders.cancelComanda(mesa)
+        assertEquals(23.0, stockOf(coca), 0.0)
+    }
+
+    @Test
+    fun aDescriptiveEditWithoutStockChangesIsAllowedOnAnOpenComanda() = runBlocking<Unit> {
+        val espetinho = untracked("Espetinho", 1000)
+        val mesa = orders.createComanda(null, "Mesa 1")
+        orders.addComandaItem(mesa, espetinho, 1.0)
+
+        products.update(products.getById(espetinho)!!.copy(priceCents = 1200))
+
+        assertEquals(1200L, products.getById(espetinho)!!.priceCents)
+    }
 }

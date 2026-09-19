@@ -518,7 +518,7 @@ private fun QuickSaleReviewScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.cartLines, key = { it.productId }) { line ->
-                        QuickSaleReviewLine(line, locale)
+                        QuickSaleReviewLine(line.productName, line.quantity, line.unitPriceCents, line.subtotalCents, locale)
                     }
                 }
 
@@ -575,21 +575,28 @@ private fun QuickSaleReviewScreen(
 }
 
 @Composable
-private fun QuickSaleReviewLine(line: QuickSaleCartLine, locale: Locale, modifier: Modifier = Modifier) {
+private fun QuickSaleReviewLine(
+    productName: String,
+    quantity: Double,
+    unitPriceCents: Long,
+    subtotalCents: Long,
+    locale: Locale,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
-            Text(line.productName, style = MaterialTheme.typography.bodyLarge)
+            Text(productName, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = "${formatQuantity(line.quantity, locale)} × ${Money(line.unitPriceCents).format(locale)}",
+                text = "${formatQuantity(quantity, locale)} × ${Money(unitPriceCents).format(locale)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(Money(line.subtotalCents).format(locale), style = MaterialTheme.typography.bodyLarge)
+        Text(Money(subtotalCents).format(locale), style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -630,7 +637,9 @@ private fun QuickSaleSuccessScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        summary.lines.forEach { line -> QuickSaleReviewLine(line, locale) }
+                        summary.lines.forEach { line ->
+                            QuickSaleReviewLine(line.productName, line.quantity, line.unitPriceCents, line.subtotalCents, locale)
+                        }
                     }
 
                     Row(
