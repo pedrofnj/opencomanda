@@ -57,6 +57,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.core.formatQuantity
 import com.pedroleite.opencomanda.data.local.entity.ProductEntity
+import com.pedroleite.opencomanda.domain.auth.Permission
+import com.pedroleite.opencomanda.ui.auth.hasPermission
 import com.pedroleite.opencomanda.ui.components.SearchField
 import com.pedroleite.opencomanda.ui.rememberAppContainer
 import java.util.Locale
@@ -172,6 +174,7 @@ private fun StockListScreen(
                             .testTag(StockTestTags.NO_RESULTS),
                     )
                 } else {
+                    val canAdjust = hasPermission(Permission.STOCK_ADJUST)
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
@@ -182,7 +185,7 @@ private fun StockListScreen(
                                 product = product,
                                 categoryName = product.categoryId?.let { uiState.categoriesById[it]?.name },
                                 locale = locale,
-                                onAdjust = { viewModel.startAdjusting(product.id) },
+                                onAdjust = if (canAdjust) { { viewModel.startAdjusting(product.id) } } else null,
                             )
                         }
                     }
@@ -197,7 +200,7 @@ private fun StockRow(
     product: ProductEntity,
     categoryName: String?,
     locale: Locale,
-    onAdjust: () -> Unit,
+    onAdjust: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val outOfStock = product.stockQuantity <= 0.0
@@ -245,14 +248,16 @@ private fun StockRow(
                     )
                 }
             }
-            OutlinedButton(
-                onClick = onAdjust,
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .semantics { contentDescription = adjustDescription }
-                    .testTag(StockTestTags.adjustButton(product.id)),
-            ) {
-                Text(stringResource(R.string.stock_adjust_action))
+            if (onAdjust != null) {
+                OutlinedButton(
+                    onClick = onAdjust,
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .semantics { contentDescription = adjustDescription }
+                        .testTag(StockTestTags.adjustButton(product.id)),
+                ) {
+                    Text(stringResource(R.string.stock_adjust_action))
+                }
             }
         }
     }

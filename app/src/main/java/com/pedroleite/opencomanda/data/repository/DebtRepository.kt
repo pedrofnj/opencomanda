@@ -2,6 +2,7 @@ package com.pedroleite.opencomanda.data.repository
 
 import androidx.room.withTransaction
 import com.pedroleite.opencomanda.core.Money
+import com.pedroleite.opencomanda.data.auth.AccessControl
 import com.pedroleite.opencomanda.data.local.AppDatabase
 import com.pedroleite.opencomanda.data.local.dao.CashSessionDao
 import com.pedroleite.opencomanda.data.local.dao.DebtDao
@@ -12,6 +13,7 @@ import com.pedroleite.opencomanda.domain.CashSessionStatus
 import com.pedroleite.opencomanda.domain.DebtBalanceCalculator
 import com.pedroleite.opencomanda.domain.DebtStatus
 import com.pedroleite.opencomanda.domain.PaymentMethod
+import com.pedroleite.opencomanda.domain.auth.Permission
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
@@ -28,6 +30,7 @@ class DebtRepository(
     private val debtDao: DebtDao,
     private val debtPaymentDao: DebtPaymentDao,
     private val cashSessionDao: CashSessionDao,
+    private val accessControl: AccessControl = AccessControl.Unrestricted,
 ) {
 
     /** The currently OPEN cash session's id, if any — looked up fresh at the moment a
@@ -68,6 +71,7 @@ class DebtRepository(
      * session is OPEN at this exact moment, if any; the caller never supplies one.
      */
     suspend fun registerPayment(debtId: Long, amountCents: Long, method: PaymentMethod) {
+        accessControl.require(Permission.FIADO_RECEIVE)
         database.withTransaction {
             val debt = debtDao.getById(debtId) ?: error("Debt $debtId not found")
             val paidSoFar = debtPaymentDao.getTotalPaidForDebt(debtId)

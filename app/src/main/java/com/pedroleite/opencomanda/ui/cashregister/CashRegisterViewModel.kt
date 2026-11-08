@@ -69,12 +69,7 @@ data class CashRegisterUiState(
     /** Sales [payments] and Fiado [debtPayments] merged by method — a debt repayment counts
      *  toward this session's totals exactly like a regular sale (see [CashSessionSummary], the
      *  repository's own authoritative equivalent computed on close). */
-    val totalsByMethod: Map<PaymentMethod, Long>
-        get() {
-            val fromSales = payments.groupBy { it.method }.mapValues { (_, forMethod) -> forMethod.sumOf { it.amountCents } }
-            val fromDebts = debtPayments.groupBy { it.method }.mapValues { (_, forMethod) -> forMethod.sumOf { it.amountCents } }
-            return (fromSales.keys + fromDebts.keys).associateWith { method -> (fromSales[method] ?: 0L) + (fromDebts[method] ?: 0L) }
-        }
+    val totalsByMethod: Map<PaymentMethod, Long> get() = receivedByMethod(payments, debtPayments)
 
     val totalReceivedCents: Long get() = totalsByMethod.values.sum()
 
@@ -91,6 +86,15 @@ data class CashRegisterUiState(
     val canConfirmOpen: Boolean get() = !isSaving
 
     val canConfirmClose: Boolean get() = !isSaving
+}
+
+/** Money received in a cash session, by method: sales [payments] plus Fiado [debtPayments] — a debt
+ *  repayment counts exactly like a sale (see [CashSessionSummary], the repository's authoritative
+ *  equivalent computed on close). Shared by the Cash Register dashboard and Home's takings card. */
+fun receivedByMethod(payments: List<PaymentEntity>, debtPayments: List<DebtPaymentEntity>): Map<PaymentMethod, Long> {
+    val fromSales = payments.groupBy { it.method }.mapValues { (_, forMethod) -> forMethod.sumOf { it.amountCents } }
+    val fromDebts = debtPayments.groupBy { it.method }.mapValues { (_, forMethod) -> forMethod.sumOf { it.amountCents } }
+    return (fromSales.keys + fromDebts.keys).associateWith { method -> (fromSales[method] ?: 0L) + (fromDebts[method] ?: 0L) }
 }
 
 /** Backs the Cash Register screen: a closed/empty state when no session is OPEN, an opening

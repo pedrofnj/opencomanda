@@ -12,13 +12,18 @@ import androidx.compose.ui.test.performTextInput
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.pedroleite.opencomanda.OpenComandaApplication
 import com.pedroleite.opencomanda.R
+import com.pedroleite.opencomanda.data.auth.SessionState
+import com.pedroleite.opencomanda.data.repository.SignInResult
 import com.pedroleite.opencomanda.ui.comandas.NewComandaTestTags
 import com.pedroleite.opencomanda.ui.comandas.OpenComandasTestTags
 import com.pedroleite.opencomanda.ui.stock.StockTestTags
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
 import com.pedroleite.opencomanda.ui.waitForContentDescription
 import com.pedroleite.opencomanda.ui.waitForTextGone
+import kotlinx.coroutines.runBlocking
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,6 +48,27 @@ class NavigationTest {
     private fun waitForText(text: String) {
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    /**
+     * This class drives the app's real, container-backed repositories, which only write for a
+     * signed-in user. Sign in as a test owner, creating it on the first test of a fresh install;
+     * later tests in the same process reuse the session or sign back in with the same credentials.
+     */
+    @Before
+    fun signIn() = runBlocking {
+        val container = (context.applicationContext as OpenComandaApplication).container
+        if (container.session.activeUser() != null) return@runBlocking
+        val auth = container.authRepository
+        auth.initialize()
+        if (container.session.state.value == SessionState.NeedsSetup) {
+            auth.completeSetup("Navegação", "Dono de teste", TEST_USERNAME, TEST_PASSWORD, TEST_PIN)
+        } else {
+            val result = auth.signInWithPassword(TEST_USERNAME, TEST_PASSWORD)
+            check(result is SignInResult.Success) {
+                "NavigationTest needs a fresh install (or one set up by this test); uninstall the app and rerun."
+            }
         }
     }
 
@@ -231,5 +257,11 @@ class NavigationTest {
         composeTestRule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
 
         composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true).assertExists()
+    }
+
+    private companion object {
+        const val TEST_USERNAME = "navegacao"
+        const val TEST_PASSWORD = "senha-navegacao-1"
+        const val TEST_PIN = "135790"
     }
 }

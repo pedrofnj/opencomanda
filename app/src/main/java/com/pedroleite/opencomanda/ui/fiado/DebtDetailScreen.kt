@@ -52,6 +52,8 @@ import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.core.Money
 import com.pedroleite.opencomanda.data.local.entity.DebtPaymentEntity
 import com.pedroleite.opencomanda.domain.PaymentMethod
+import com.pedroleite.opencomanda.domain.auth.Permission
+import com.pedroleite.opencomanda.ui.auth.hasPermission
 import com.pedroleite.opencomanda.ui.components.MoneyField
 import com.pedroleite.opencomanda.ui.components.paymentMethodLabel
 import com.pedroleite.opencomanda.ui.rememberAppContainer
@@ -181,50 +183,52 @@ private fun DebtDetailFormScreen(
                     )
                 }
 
-                MoneyField(
-                    label = stringResource(R.string.fiado_payment_amount_label),
-                    valueCents = uiState.amountCents,
-                    onValueChange = viewModel::onAmountChanged,
-                    modifier = Modifier.fillMaxWidth().testTag(DebtDetailTestTags.AMOUNT_FIELD),
-                )
-                OutlinedButton(
-                    onClick = viewModel::payAll,
-                    modifier = Modifier.testTag(DebtDetailTestTags.PAY_ALL_BUTTON),
-                ) {
-                    Text(stringResource(R.string.fiado_pay_all_action))
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = stringResource(R.string.quicksale_payment_method_label),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                if (hasPermission(Permission.FIADO_RECEIVE)) {
+                    MoneyField(
+                        label = stringResource(R.string.fiado_payment_amount_label),
+                        valueCents = uiState.amountCents,
+                        onValueChange = viewModel::onAmountChanged,
+                        modifier = Modifier.fillMaxWidth().testTag(DebtDetailTestTags.AMOUNT_FIELD),
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(PaymentMethod.entries) { method ->
-                            FilterChip(
-                                selected = uiState.paymentMethod == method,
-                                onClick = { viewModel.onPaymentMethodSelected(method) },
-                                label = { Text(paymentMethodLabel(method)) },
-                                modifier = Modifier.testTag(DebtDetailTestTags.paymentMethodChip(method)),
-                            )
+                    OutlinedButton(
+                        onClick = viewModel::payAll,
+                        modifier = Modifier.testTag(DebtDetailTestTags.PAY_ALL_BUTTON),
+                    ) {
+                        Text(stringResource(R.string.fiado_pay_all_action))
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.quicksale_payment_method_label),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(PaymentMethod.entries) { method ->
+                                FilterChip(
+                                    selected = uiState.paymentMethod == method,
+                                    onClick = { viewModel.onPaymentMethodSelected(method) },
+                                    label = { Text(paymentMethodLabel(method)) },
+                                    modifier = Modifier.testTag(DebtDetailTestTags.paymentMethodChip(method)),
+                                )
+                            }
                         }
                     }
-                }
 
-                Button(
-                    onClick = viewModel::confirmPayment,
-                    enabled = uiState.canConfirmPayment,
-                    modifier = Modifier.fillMaxWidth().testTag(DebtDetailTestTags.CONFIRM_BUTTON),
-                ) {
-                    if (uiState.isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Text(stringResource(R.string.fiado_confirm_payment_action))
+                    Button(
+                        onClick = viewModel::confirmPayment,
+                        enabled = uiState.canConfirmPayment,
+                        modifier = Modifier.fillMaxWidth().testTag(DebtDetailTestTags.CONFIRM_BUTTON),
+                    ) {
+                        if (uiState.isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Text(stringResource(R.string.fiado_confirm_payment_action))
+                        }
                     }
                 }
 

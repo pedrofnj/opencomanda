@@ -48,6 +48,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.data.local.entity.CategoryEntity
+import com.pedroleite.opencomanda.domain.auth.Permission
+import com.pedroleite.opencomanda.ui.auth.hasPermission
 import com.pedroleite.opencomanda.ui.components.MoneyField
 import com.pedroleite.opencomanda.ui.rememberAppContainer
 
@@ -129,8 +131,8 @@ fun ProductFormScreen(
                 onSubmit = viewModel::submit,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .fillMaxWidth()
                     .widthIn(max = 560.dp)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .imePadding()
                     .padding(20.dp),
@@ -207,13 +209,17 @@ private fun ProductForm(
             )
         }
 
-        ToggleRow(
-            label = stringResource(R.string.product_field_track_stock_toggle),
-            checked = uiState.trackStock,
-            onCheckedChange = onTrackStockChange,
-            switchModifier = Modifier.testTag(ProductFormTestTags.TRACK_STOCK_TOGGLE),
-        )
-        if (uiState.trackStock) {
+        // Changing an existing product's stock is a stock adjustment; a new product's opening count isn't.
+        val canEditStock = !uiState.isEditing || hasPermission(Permission.STOCK_ADJUST)
+        if (canEditStock) {
+            ToggleRow(
+                label = stringResource(R.string.product_field_track_stock_toggle),
+                checked = uiState.trackStock,
+                onCheckedChange = onTrackStockChange,
+                switchModifier = Modifier.testTag(ProductFormTestTags.TRACK_STOCK_TOGGLE),
+            )
+        }
+        if (canEditStock && uiState.trackStock) {
             OutlinedTextField(
                 value = uiState.stockQuantityText,
                 onValueChange = onStockQuantityTextChange,

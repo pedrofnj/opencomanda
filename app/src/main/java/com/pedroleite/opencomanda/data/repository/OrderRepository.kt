@@ -2,6 +2,7 @@ package com.pedroleite.opencomanda.data.repository
 
 import androidx.room.withTransaction
 import com.pedroleite.opencomanda.core.Money
+import com.pedroleite.opencomanda.data.auth.AccessControl
 import com.pedroleite.opencomanda.data.local.AppDatabase
 import com.pedroleite.opencomanda.data.local.dao.CashSessionDao
 import com.pedroleite.opencomanda.data.local.dao.DebtDao
@@ -20,6 +21,8 @@ import com.pedroleite.opencomanda.domain.OrderStatus
 import com.pedroleite.opencomanda.domain.OrderTotalCalculator
 import com.pedroleite.opencomanda.domain.OrderType
 import com.pedroleite.opencomanda.domain.PaymentMethod
+import com.pedroleite.opencomanda.domain.auth.AuditAction
+import com.pedroleite.opencomanda.domain.auth.Permission
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
@@ -68,6 +71,7 @@ class OrderRepository(
     private val debtDao: DebtDao,
     private val productDao: ProductDao,
     private val cashSessionDao: CashSessionDao,
+    private val accessControl: AccessControl = AccessControl.Unrestricted,
 ) {
 
     /** The currently OPEN cash session's id, if any — looked up fresh at the moment a Payment
@@ -102,6 +106,7 @@ class OrderRepository(
      *  operator can leave and return to it later. [displayName] is required — a Comanda always
      *  needs an identifying name ("Mesa 4", "João") to show in the Open Comandas list. */
     suspend fun createComanda(customerId: Long?, displayName: String): Long {
+        accessControl.require(Permission.COMANDA_MANAGE)
         val trimmedName = displayName.trim()
         require(trimmedName.isNotEmpty()) { "Comanda name must not be blank" }
         val now = System.currentTimeMillis()
@@ -128,6 +133,7 @@ class OrderRepository(
      * snapshots the product's current name/price.
      */
     suspend fun addComandaItem(orderId: Long, productId: Long, quantity: Double = 1.0) {
+        accessControl.require(Permission.COMANDA_MANAGE)
         require(quantity > 0) { "Quantity must be greater than zero" }
         database.withTransaction {
             val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
@@ -172,6 +178,7 @@ class OrderRepository(
      * such line (defensive: the UI should never offer this action in that case).
      */
     suspend fun decrementComandaItem(orderId: Long, productId: Long) {
+        accessControl.require(Permission.COMANDA_MANAGE)
         database.withTransaction {
             val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
             check(order.status == OrderStatus.OPEN) { "Cannot edit items on a non-open order" }
@@ -199,6 +206,7 @@ class OrderRepository(
      * since every mutation above only proceeds when `status == OPEN`.
      */
     suspend fun cancelComanda(orderId: Long) {
+        accessControl.require(Permission.SALES_CANCEL)
         database.withTransaction {
             val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
             check(order.status == OrderStatus.OPEN) { "Only an open comanda can be cancelled" }
@@ -212,6 +220,7 @@ class OrderRepository(
                 }
             }
             orderDao.close(orderId, OrderStatus.CANCELLED, now)
+            accessControl.audit(AuditAction.COMANDA_CANCELLED, order.displayName)
         }
     }
 
@@ -219,6 +228,7 @@ class OrderRepository(
      *  The payment is attached to whichever cash session is OPEN at this exact moment, if any
      *  (see [currentOpenCashSessionId]) — never a session id supplied by the caller. */
     suspend fun closeOrderWithPayment(orderId: Long, method: PaymentMethod) {
+        accessControl.require(Permission.COMANDA_MANAGE)
         database.withTransaction {
             val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
             check(order.status == OrderStatus.OPEN) { "Order is not open" }
@@ -245,6 +255,7 @@ class OrderRepository(
      * separate `isFiado` path, which this never touches).
      */
     suspend fun closeOrderAsFiado(orderId: Long) {
+        accessControl.require(Permission.FIADO_CHARGE)
         database.withTransaction {
             val order = orderDao.getById(orderId) ?: error("Order $orderId not found")
             check(order.orderType == OrderType.COMANDA) { "Fiado can only be recorded by closing a Comanda" }
@@ -307,6 +318,8 @@ class OrderRepository(
         require(lines.isNotEmpty()) { "Cannot confirm a sale with no items" }
         require(isFiado != (method != null)) { "Provide either a payment method or Fiado, not both/neither" }
         if (isFiado) require(customerId != null) { "Fiado requires a customer" }
+        accessControl.require(Permission.SALES_CREATE)
+        if (isFiado) accessControl.require(Permission.FIADO_CHARGE)
 
         return database.withTransaction {
             // Revalidate against the current database state — never trust product data
