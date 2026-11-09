@@ -1,6 +1,7 @@
 package com.pedroleite.opencomanda.data.repository
 
 import androidx.room.withTransaction
+import com.pedroleite.opencomanda.data.auth.AccessControl
 import com.pedroleite.opencomanda.data.local.AppDatabase
 import com.pedroleite.opencomanda.data.local.dao.CashSessionDao
 import com.pedroleite.opencomanda.data.local.dao.DebtPaymentDao
@@ -10,6 +11,8 @@ import com.pedroleite.opencomanda.data.local.entity.DebtPaymentEntity
 import com.pedroleite.opencomanda.data.local.entity.PaymentEntity
 import com.pedroleite.opencomanda.domain.CashSessionStatus
 import com.pedroleite.opencomanda.domain.PaymentMethod
+import com.pedroleite.opencomanda.domain.auth.AuditAction
+import com.pedroleite.opencomanda.domain.auth.Permission
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -43,6 +46,7 @@ class CashRegisterRepository(
     private val cashSessionDao: CashSessionDao,
     private val paymentDao: PaymentDao,
     private val debtPaymentDao: DebtPaymentDao,
+    private val accessControl: AccessControl = AccessControl.Unrestricted,
 ) {
 
     /** The currently OPEN session, if any — Quick Sale/Comanda payments made while this is null
@@ -68,11 +72,12 @@ class CashRegisterRepository(
      */
     suspend fun openSession(openingBalanceCents: Long, notes: String? = null): Long {
         require(openingBalanceCents >= 0) { "Opening balance cannot be negative" }
+        accessControl.require(Permission.CASH_OPEN)
         return database.withTransaction {
             check(cashSessionDao.getByStatus(CashSessionStatus.OPEN) == null) {
                 "A cash session is already open"
             }
-            cashSessionDao.insert(
+            val id = cashSessionDao.insert(
                 CashSessionEntity(
                     openedAt = System.currentTimeMillis(),
                     openingBalanceCents = openingBalanceCents,
@@ -80,6 +85,8 @@ class CashRegisterRepository(
                     notes = notes?.trim()?.ifBlank { null },
                 ),
             )
+            accessControl.audit(AuditAction.CASH_OPENED, "#$id · $openingBalanceCents")
+            id
         }
     }
 
@@ -93,6 +100,7 @@ class CashRegisterRepository(
      */
     suspend fun closeSession(sessionId: Long, countedCashCents: Long?): CashSessionSummary {
         if (countedCashCents != null) require(countedCashCents >= 0) { "Counted cash cannot be negative" }
+        accessControl.require(Permission.CASH_CLOSE)
         return database.withTransaction {
             val session = cashSessionDao.getById(sessionId) ?: error("Cash session $sessionId not found")
             check(session.status == CashSessionStatus.OPEN) { "Cash session is not open" }
@@ -104,6 +112,7 @@ class CashRegisterRepository(
                 closingBalanceCents = countedCashCents,
             )
             cashSessionDao.update(closedSession)
+            accessControl.audit(AuditAction.CASH_CLOSED, "#${session.id} · ${countedCashCents ?: "-"}")
             summary.copy(session = closedSession)
         }
     }

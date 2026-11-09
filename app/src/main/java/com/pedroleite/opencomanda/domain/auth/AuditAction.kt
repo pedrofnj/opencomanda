@@ -1,0 +1,30 @@
+package com.pedroleite.opencomanda.domain.auth
+
+/** What an audit-log entry records. Stored by name: never rename an entry once shipped. */
+enum class AuditAction {
+    SETUP_COMPLETED,
+    LOGIN_SUCCEEDED,
+    LOGIN_FAILED,
+    ACCOUNT_LOCKED,
+    LOGOUT,
+    RECOVERY_USED,
+    RECOVERY_FAILED,
+    RECOVERY_KEY_REGENERATED,
+    PASSWORD_CHANGED,
+    PIN_CHANGED,
+    USER_CREATED,
+    USER_UPDATED,
+    USER_DEACTIVATED,
+    USER_REACTIVATED,
+    PASSWORD_RESET,
+    PIN_RESET,
+    ROLE_CREATED,
+    ROLE_UPDATED,
+    ROLE_DELETED,
+    SETTINGS_CHANGED,
+    PERMISSION_DENIED,
+    CASH_OPENED,
+    CASH_CLOSED,
+    COMANDA_CANCELLED,
+    STOCK_ADJUSTED,
+}

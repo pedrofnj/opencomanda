@@ -1,5 +1,6 @@
 package com.pedroleite.opencomanda.ui.home
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -8,6 +9,10 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pedroleite.opencomanda.R
+import com.pedroleite.opencomanda.domain.auth.Permission
+import com.pedroleite.opencomanda.domain.auth.PermissionPolicy
+import com.pedroleite.opencomanda.domain.auth.SystemRole
+import com.pedroleite.opencomanda.ui.auth.LocalPermissions
 import com.pedroleite.opencomanda.ui.navigation.Destination
 import com.pedroleite.opencomanda.ui.theme.OpenComandaTheme
 import org.junit.Assert.assertEquals
@@ -100,5 +105,44 @@ class HomeScreenTest {
         composeTestRule.onNodeWithText(string(R.string.action_stock)).performScrollTo().performClick()
 
         assertEquals(Destination.Stock, navigated)
+    }
+
+    @Test
+    fun aSellerSeesOnlyWhatTheirProfileAllows() {
+        composeTestRule.setContent {
+            OpenComandaTheme {
+                CompositionLocalProvider(LocalPermissions provides PermissionPolicy.defaultPermissions(SystemRole.SELLER)) {
+                    HomeScreen(onNavigate = {})
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText(string(R.string.action_quick_sale), substring = true).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.action_new_comanda), substring = true).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.action_stock)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.action_customers)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.action_products)).assertDoesNotExist()
+        composeTestRule.onNodeWithText(string(R.string.action_fiado)).assertDoesNotExist()
+        // The takings card is financial information: no cash register entry for a seller.
+        composeTestRule.onNodeWithText(string(R.string.action_cash_register)).assertDoesNotExist()
+    }
+
+    @Test
+    fun someoneWhoOperatesTheCashRegisterWithoutReportsStillReachesIt() {
+        // A Gerente profile edited to keep opening and closing the register, but not the reports.
+        val permissions = PermissionPolicy.defaultPermissions(SystemRole.MANAGER) - Permission.REPORTS_VIEW
+        var navigated: Destination? = null
+        composeTestRule.setContent {
+            OpenComandaTheme {
+                CompositionLocalProvider(LocalPermissions provides permissions) {
+                    HomeScreen(onNavigate = { navigated = it })
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText(string(R.string.home_cash_received_label)).assertDoesNotExist()
+        composeTestRule.onNodeWithText(string(R.string.action_cash_register)).performScrollTo().performClick()
+
+        assertEquals(Destination.CashRegister, navigated)
     }
 }

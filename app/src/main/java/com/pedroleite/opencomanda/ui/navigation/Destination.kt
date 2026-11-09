@@ -59,4 +59,31 @@ sealed class Destination(val route: String) {
 
         fun createRoute(debtId: Long): String = "debt_detail/$debtId"
     }
+
+    /** The signed-in user's own password and PIN. */
+    data object Account : Destination("account")
+
+    data object Users : Destination("users")
+
+    /** Create User and Edit User share one destination/screen; [ARG_USER_ID] is absent for create. */
+    data object UserForm : Destination("user_form?userId={userId}") {
+        const val ARG_USER_ID = "userId"
+        const val NO_USER_ID = -1L
+
+        fun createRoute(userId: Long? = null): String = if (userId != null) "user_form?userId=$userId" else "user_form"
+    }
+
+    data object Roles : Destination("roles")
+
+    /** Create Profile and Edit Profile share one destination/screen; [ARG_ROLE_ID] is absent for create. */
+    data object RoleForm : Destination("role_form?roleId={roleId}") {
+        const val ARG_ROLE_ID = "roleId"
+        const val NO_ROLE_ID = -1L
+
+        fun createRoute(roleId: Long? = null): String = if (roleId != null) "role_form?roleId=$roleId" else "role_form"
+    }
+
+    data object Settings : Destination("settings")
+
+    data object AuditLog : Destination("audit_log")
 }

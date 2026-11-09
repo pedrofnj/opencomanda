@@ -111,8 +111,8 @@ fun CustomerFormScreen(
                 onSubmit = viewModel::submit,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .fillMaxWidth()
                     .widthIn(max = 560.dp)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .imePadding()
                     .padding(20.dp),

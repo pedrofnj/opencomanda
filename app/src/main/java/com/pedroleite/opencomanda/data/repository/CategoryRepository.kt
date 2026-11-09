@@ -1,14 +1,19 @@
 package com.pedroleite.opencomanda.data.repository
 
+import com.pedroleite.opencomanda.data.auth.AccessControl
 import com.pedroleite.opencomanda.data.local.dao.CategoryDao
 import com.pedroleite.opencomanda.data.local.entity.CategoryEntity
+import com.pedroleite.opencomanda.domain.auth.Permission
 import kotlinx.coroutines.flow.Flow
 
 /** Thrown when a category name collides with another *active* category's name (compared
  *  trimmed and case-insensitively) — a distinct type so callers can show a specific message. */
 class DuplicateCategoryNameException(message: String) : IllegalArgumentException(message)
 
-class CategoryRepository(private val categoryDao: CategoryDao) {
+class CategoryRepository(
+    private val categoryDao: CategoryDao,
+    private val accessControl: AccessControl = AccessControl.Unrestricted,
+) {
 
     fun getAll(): Flow<List<CategoryEntity>> = categoryDao.getAll()
 
@@ -17,6 +22,7 @@ class CategoryRepository(private val categoryDao: CategoryDao) {
     suspend fun getById(id: Long): CategoryEntity? = categoryDao.getById(id)
 
     suspend fun create(name: String): Long {
+        accessControl.require(Permission.PRODUCTS_MANAGE)
         require(name.isNotBlank()) { "Category name must not be blank" }
         val trimmedName = name.trim()
         checkNoActiveDuplicate(trimmedName, excludeId = null)
@@ -27,6 +33,7 @@ class CategoryRepository(private val categoryDao: CategoryDao) {
     }
 
     suspend fun rename(id: Long, name: String) {
+        accessControl.require(Permission.PRODUCTS_MANAGE)
         require(name.isNotBlank()) { "Category name must not be blank" }
         val existing = categoryDao.getById(id) ?: return
         val trimmedName = name.trim()
@@ -41,6 +48,7 @@ class CategoryRepository(private val categoryDao: CategoryDao) {
      *
      *  @throws DuplicateCategoryNameException when reactivating would duplicate an active name. */
     suspend fun setActive(id: Long, active: Boolean) {
+        accessControl.require(Permission.PRODUCTS_MANAGE)
         if (active) {
             val existing = categoryDao.getById(id) ?: return
             checkNoActiveDuplicate(existing.name, excludeId = id)

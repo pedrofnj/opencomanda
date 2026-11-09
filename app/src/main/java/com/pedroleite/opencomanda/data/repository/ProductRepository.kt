@@ -1,10 +1,13 @@
 package com.pedroleite.opencomanda.data.repository
 
 import androidx.room.withTransaction
+import com.pedroleite.opencomanda.data.auth.AccessControl
 import com.pedroleite.opencomanda.data.local.AppDatabase
 import com.pedroleite.opencomanda.data.local.dao.ProductDao
 import com.pedroleite.opencomanda.data.local.entity.ProductEntity
 import com.pedroleite.opencomanda.domain.OrderStatus
+import com.pedroleite.opencomanda.domain.auth.AuditAction
+import com.pedroleite.opencomanda.domain.auth.Permission
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -36,6 +39,7 @@ class StockTrackingLockedException(val productId: Long) :
 class ProductRepository(
     private val database: AppDatabase,
     private val productDao: ProductDao,
+    private val accessControl: AccessControl = AccessControl.Unrestricted,
 ) {
 
     fun getAll(): Flow<List<ProductEntity>> = productDao.getAll()
@@ -56,6 +60,7 @@ class ProductRepository(
         initialStockQuantity: Double,
         categoryId: Long? = null,
     ): Long {
+        accessControl.require(Permission.PRODUCTS_MANAGE)
         require(name.isNotBlank()) { "Product name must not be blank" }
         require(priceCents >= 0) { "Product price cannot be negative" }
         require(costCents == null || costCents >= 0) { "Product cost cannot be negative" }
@@ -95,6 +100,8 @@ class ProductRepository(
      * that is on an open Comanda.
      */
     suspend fun update(product: ProductEntity, stockConfig: StockConfig? = null) {
+        accessControl.require(Permission.PRODUCTS_MANAGE)
+        if (stockConfig != null) accessControl.require(Permission.STOCK_ADJUST)
         require(product.name.isNotBlank()) { "Product name must not be blank" }
         require(product.priceCents >= 0) { "Product price cannot be negative" }
         require(product.costCents == null || product.costCents >= 0) { "Product cost cannot be negative" }
@@ -131,6 +138,7 @@ class ProductRepository(
 
     /** Soft-disable: OpenComanda never hard-deletes products referenced by historical orders. */
     suspend fun setActive(id: Long, active: Boolean) {
+        accessControl.require(Permission.PRODUCTS_MANAGE)
         productDao.setActive(id, active, System.currentTimeMillis())
     }
 
@@ -147,6 +155,7 @@ class ProductRepository(
      * not a finite number, or the result would be negative.
      */
     suspend fun adjustStock(productId: Long, delta: Double): StockChange {
+        accessControl.require(Permission.STOCK_ADJUST)
         if (!delta.isFinite()) throw StockAdjustmentException(StockAdjustmentError.INVALID_QUANTITY, "Adjustment must be a finite number")
         if (delta == 0.0) throw StockAdjustmentException(StockAdjustmentError.ZERO_ADJUSTMENT, "Adjustment must not be zero")
         return database.withTransaction {
@@ -164,6 +173,7 @@ class ProductRepository(
 
     /** Sets a tracked product's stock to exactly [quantity] — for a physical count. Zero is valid. */
     suspend fun setStock(productId: Long, quantity: Double): StockChange {
+        accessControl.require(Permission.STOCK_ADJUST)
         if (!quantity.isFinite() || quantity < 0.0) {
             throw StockAdjustmentException(StockAdjustmentError.INVALID_QUANTITY, "Stock must be a non-negative number")
         }
@@ -181,6 +191,7 @@ class ProductRepository(
 
     private suspend fun writeStock(product: ProductEntity, newQuantity: Double): StockChange {
         productDao.setStockQuantity(product.id, newQuantity, System.currentTimeMillis())
+        accessControl.audit(AuditAction.STOCK_ADJUSTED, "${product.name}: ${product.stockQuantity} → $newQuantity")
         return StockChange(product.id, product.name, product.stockQuantity, newQuantity)
     }
 

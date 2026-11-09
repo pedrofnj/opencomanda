@@ -2,6 +2,28 @@ package com.pedroleite.opencomanda.ui.quicksale
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.draw.clip
+import com.pedroleite.opencomanda.ui.components.AppFilterChip
+import com.pedroleite.opencomanda.ui.components.Panel
+import com.pedroleite.opencomanda.ui.components.ProductPickCard
+import com.pedroleite.opencomanda.ui.components.WideLayoutMinWidth
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,21 +40,14 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -53,9 +68,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,9 +78,7 @@ import com.pedroleite.opencomanda.R
 import com.pedroleite.opencomanda.core.Money
 import com.pedroleite.opencomanda.core.formatQuantity
 import com.pedroleite.opencomanda.data.local.entity.CategoryEntity
-import com.pedroleite.opencomanda.data.local.entity.ProductEntity
 import com.pedroleite.opencomanda.domain.PaymentMethod
-import com.pedroleite.opencomanda.domain.QuickSaleCartLine
 import com.pedroleite.opencomanda.ui.components.paymentMethodLabel
 import com.pedroleite.opencomanda.ui.products.ProductCategoryFilter
 import com.pedroleite.opencomanda.ui.rememberAppContainer
@@ -175,65 +185,78 @@ private fun QuickSaleSelectingScreen(
     onGoToProducts: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.action_quick_sale)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
-            )
-        },
-        bottomBar = {
-            if (uiState.cartLines.isNotEmpty()) {
-                QuickSaleCartSummaryBar(
-                    totalCents = uiState.totalCents,
-                    onContinue = viewModel::proceedToReview,
-                )
-            }
-        },
-    ) { innerPadding ->
-        when {
-            uiState.isLoading -> Unit
-            uiState.products.isEmpty() -> QuickSaleEmptyProductsState(
-                onGoToProducts = onGoToProducts,
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-            )
-            else -> Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .widthIn(max = 840.dp)
-                        .align(Alignment.TopCenter),
-                ) {
-                    if (uiState.activeCategories.isNotEmpty()) {
-                        QuickSaleCategoryFilterRow(
-                            activeCategories = uiState.activeCategories,
-                            selectedFilter = uiState.categoryFilter,
-                            onFilterSelected = viewModel::setCategoryFilter,
-                        )
-                    }
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        items(uiState.filteredProducts, key = { it.id }) { product ->
-                            QuickSaleProductRow(
-                                product = product,
-                                categoryName = product.categoryId?.let { uiState.categoriesById[it]?.name },
-                                quantity = uiState.cartQuantityByProductId[product.id] ?: 0.0,
-                                onAdd = { viewModel.addToCart(product) },
-                                onIncrement = { viewModel.incrementQuantity(product.id) },
-                                onDecrement = { viewModel.decrementQuantity(product.id) },
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        // Wide screens keep the cart open beside the products; phones show it as a bar at the bottom.
+        val wide = maxWidth >= WideLayoutMinWidth
+        val cartPanelWidth = if (maxWidth >= 900.dp) 380.dp else 320.dp
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.action_quick_sale), style = MaterialTheme.typography.titleLarge) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.action_back),
                             )
                         }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+            },
+            bottomBar = {
+                if (!wide && uiState.cartLines.isNotEmpty()) {
+                    QuickSaleCartSummaryBar(
+                        itemCount = uiState.cartLines.sumOf { it.quantity },
+                        totalCents = uiState.totalCents,
+                        onContinue = viewModel::proceedToReview,
+                    )
+                }
+            },
+        ) { innerPadding ->
+            when {
+                uiState.isLoading -> Unit
+                uiState.products.isEmpty() -> QuickSaleEmptyProductsState(
+                    onGoToProducts = onGoToProducts,
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                )
+                else -> Row(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                    Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        if (uiState.activeCategories.isNotEmpty()) {
+                            QuickSaleCategoryFilterRow(
+                                activeCategories = uiState.activeCategories,
+                                selectedFilter = uiState.categoryFilter,
+                                onFilterSelected = viewModel::setCategoryFilter,
+                            )
+                        }
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 160.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            gridItems(uiState.filteredProducts, key = { it.id }) { product ->
+                                ProductPickCard(
+                                    product = product,
+                                    categoryName = product.categoryId?.let { uiState.categoriesById[it]?.name },
+                                    quantity = uiState.cartQuantityByProductId[product.id] ?: 0.0,
+                                    onAdd = { viewModel.addToCart(product) },
+                                    onIncrement = { viewModel.incrementQuantity(product.id) },
+                                    onDecrement = { viewModel.decrementQuantity(product.id) },
+                                )
+                            }
+                        }
+                    }
+                    if (wide) {
+                        QuickSaleCartPanel(
+                            uiState = uiState,
+                            onContinue = viewModel::proceedToReview,
+                            modifier = Modifier
+                                .width(cartPanelWidth)
+                                .fillMaxHeight()
+                                .padding(top = 8.dp, end = 16.dp, bottom = 16.dp),
+                        )
                     }
                 }
             }
@@ -241,36 +264,94 @@ private fun QuickSaleSelectingScreen(
     }
 }
 
+/** Phones: the running total in a graphite bar, with the way forward in saffron. */
 @Composable
-private fun QuickSaleCartSummaryBar(totalCents: Long, onContinue: () -> Unit, modifier: Modifier = Modifier) {
+private fun QuickSaleCartSummaryBar(itemCount: Double, totalCents: Long, onContinue: () -> Unit, modifier: Modifier = Modifier) {
     val locale = LocalLocale.current.platformLocale
-    Surface(modifier = modifier, tonalElevation = 3.dp, shadowElevation = 3.dp) {
-        Row(
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.surface) {
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.inverseSurface,
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
         ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.quicksale_total_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = Money(totalCents).format(locale),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Button(
-                onClick = onContinue,
-                modifier = Modifier.testTag(QuickSaleTestTags.CONTINUE_BUTTON),
+            Row(
+                modifier = Modifier.padding(start = 18.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.quicksale_continue_sale))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.comanda_item_count, formatQuantity(itemCount, locale)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.72f),
+                    )
+                    Text(text = Money(totalCents).format(locale), style = MaterialTheme.typography.titleLarge)
+                }
+                ContinueButton(onClick = onContinue)
             }
         }
+    }
+}
+
+@Composable
+private fun ContinueButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .testTag(QuickSaleTestTags.CONTINUE_BUTTON),
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.tertiary,
+            contentColor = MaterialTheme.colorScheme.onTertiary,
+        ),
+    ) {
+        Text(stringResource(R.string.quicksale_continue_sale))
+        Spacer(Modifier.width(6.dp))
+        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+    }
+}
+
+/** Wide screens: the cart stays visible beside the products, so the operator sees every line and
+ *  the total while still adding items. */
+@Composable
+private fun QuickSaleCartPanel(uiState: QuickSaleUiState, onContinue: () -> Unit, modifier: Modifier = Modifier) {
+    val locale = LocalLocale.current.platformLocale
+    Panel(modifier = modifier, contentPadding = PaddingValues(18.dp)) {
+        Text(text = stringResource(R.string.quicksale_cart_title), style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(12.dp))
+        if (uiState.cartLines.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = stringResource(R.string.quicksale_cart_empty_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(uiState.cartLines, key = { it.productId }) { line ->
+                    QuickSaleReviewLine(line.productName, line.quantity, line.unitPriceCents, line.subtotalCents, locale)
+                }
+            }
+        }
+        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.quicksale_total_label),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            Text(text = Money(uiState.totalCents).format(locale), style = MaterialTheme.typography.headlineSmall)
+        }
+        Spacer(Modifier.height(12.dp))
+        ContinueButton(onClick = onContinue, enabled = uiState.canReview, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -287,26 +368,26 @@ private fun QuickSaleCategoryFilterRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            FilterChip(
+            AppFilterChip(
                 selected = selectedFilter == ProductCategoryFilter.All,
                 onClick = { onFilterSelected(ProductCategoryFilter.All) },
-                label = { Text(stringResource(R.string.category_filter_all)) },
+                label = stringResource(R.string.category_filter_all),
                 modifier = Modifier.testTag(QuickSaleTestTags.CATEGORY_FILTER_ALL),
             )
         }
         item {
-            FilterChip(
+            AppFilterChip(
                 selected = selectedFilter == ProductCategoryFilter.Uncategorized,
                 onClick = { onFilterSelected(ProductCategoryFilter.Uncategorized) },
-                label = { Text(stringResource(R.string.category_filter_uncategorized)) },
+                label = stringResource(R.string.category_filter_uncategorized),
                 modifier = Modifier.testTag(QuickSaleTestTags.CATEGORY_FILTER_UNCATEGORIZED),
             )
         }
         items(activeCategories, key = { it.id }) { category ->
-            FilterChip(
+            AppFilterChip(
                 selected = selectedFilter == ProductCategoryFilter.ByCategory(category.id),
                 onClick = { onFilterSelected(ProductCategoryFilter.ByCategory(category.id)) },
-                label = { Text(category.name) },
+                label = category.name,
                 modifier = Modifier.testTag(QuickSaleTestTags.categoryFilterChip(category.id)),
             )
         }
@@ -328,8 +409,7 @@ private fun QuickSaleEmptyProductsState(onGoToProducts: () -> Unit, modifier: Mo
             )
             Text(
                 text = stringResource(R.string.quicksale_empty_products_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
                 textAlign = TextAlign.Center,
             )
             Text(
@@ -338,120 +418,9 @@ private fun QuickSaleEmptyProductsState(onGoToProducts: () -> Unit, modifier: Mo
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
-            Button(onClick = onGoToProducts) {
+            Button(onClick = onGoToProducts, shape = MaterialTheme.shapes.medium) {
                 Text(stringResource(R.string.quicksale_empty_products_cta))
             }
-        }
-    }
-}
-
-@Composable
-private fun QuickSaleProductRow(
-    product: ProductEntity,
-    categoryName: String?,
-    quantity: Double,
-    onAdd: () -> Unit,
-    onIncrement: () -> Unit,
-    onDecrement: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val locale = LocalLocale.current.platformLocale
-    val addDescription = stringResource(R.string.quicksale_add_action, product.name)
-    // A tracked product at zero can't be added. The repository still enforces this; the row just
-    // says so in words instead of letting the operator find out at confirmation.
-    val outOfStock = product.trackStock && product.stockQuantity <= 0.0
-    val addBlocked = outOfStock && quantity <= 0.0
-
-    Card(
-        onClick = onAdd,
-        enabled = !addBlocked,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = product.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = Money(product.priceCents).format(locale),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (outOfStock) {
-                    Text(
-                        text = stringResource(R.string.stock_out_of_stock),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                if (categoryName != null) {
-                    Text(
-                        text = categoryName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            if (quantity <= 0.0) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = if (addBlocked) {
-                        stringResource(R.string.stock_product_out_of_stock_description, product.name)
-                    } else {
-                        addDescription
-                    },
-                    modifier = Modifier.size(28.dp),
-                    tint = if (addBlocked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-                )
-            } else {
-                QuickSaleQuantityStepper(
-                    productName = product.name,
-                    quantity = quantity,
-                    onIncrement = onIncrement,
-                    onDecrement = onDecrement,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuickSaleQuantityStepper(
-    productName: String,
-    quantity: Double,
-    onIncrement: () -> Unit,
-    onDecrement: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val locale = LocalLocale.current.platformLocale
-    val decreaseDescription = stringResource(R.string.quicksale_decrease_quantity, productName)
-    val increaseDescription = stringResource(R.string.quicksale_increase_quantity, productName)
-    val quantityDescription = stringResource(R.string.quicksale_quantity_label, productName, formatQuantity(quantity, locale))
-
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onDecrement, modifier = Modifier.size(48.dp)) {
-            Icon(imageVector = Icons.Filled.Remove, contentDescription = decreaseDescription)
-        }
-        Text(
-            text = formatQuantity(quantity, locale),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .widthIn(min = 28.dp)
-                .semantics { contentDescription = quantityDescription },
-            textAlign = TextAlign.Center,
-        )
-        IconButton(onClick = onIncrement, modifier = Modifier.size(48.dp)) {
-            Icon(imageVector = Icons.Filled.Add, contentDescription = increaseDescription)
         }
     }
 }
@@ -491,7 +460,7 @@ private fun QuickSaleReviewScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.quicksale_review_title)) },
+                title = { Text(stringResource(R.string.quicksale_review_title), style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -513,25 +482,25 @@ private fun QuickSaleReviewScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                LazyColumn(
-                    modifier = Modifier.weight(1f, fill = false),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(uiState.cartLines, key = { it.productId }) { line ->
-                        QuickSaleReviewLine(line.productName, line.quantity, line.unitPriceCents, line.subtotalCents, locale)
+                Panel(modifier = Modifier.weight(1f, fill = false), contentPadding = PaddingValues(16.dp)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(uiState.cartLines, key = { it.productId }) { line ->
+                            QuickSaleReviewLine(line.productName, line.quantity, line.unitPriceCents, line.subtotalCents, locale)
+                        }
                     }
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(stringResource(R.string.quicksale_total_label), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = Money(uiState.totalCents).format(locale),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        text = stringResource(R.string.quicksale_total_label),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
                     )
+                    Text(text = Money(uiState.totalCents).format(locale), style = MaterialTheme.typography.headlineLarge)
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -540,12 +509,15 @@ private fun QuickSaleReviewScreen(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(PaymentMethod.entries) { method ->
-                            FilterChip(
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        PaymentMethod.entries.forEach { method ->
+                            AppFilterChip(
                                 selected = uiState.paymentMethod == method,
                                 onClick = { viewModel.onPaymentMethodSelected(method) },
-                                label = { Text(paymentMethodLabel(method)) },
+                                label = paymentMethodLabel(method),
                                 modifier = Modifier.testTag(QuickSaleTestTags.paymentMethodChip(method)),
                             )
                         }
@@ -557,7 +529,9 @@ private fun QuickSaleReviewScreen(
                     enabled = uiState.canConfirm,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 56.dp)
                         .testTag(QuickSaleTestTags.CONFIRM_BUTTON),
+                    shape = MaterialTheme.shapes.medium,
                 ) {
                     if (uiState.isSaving) {
                         CircularProgressIndicator(
@@ -620,22 +594,31 @@ private fun QuickSaleSuccessScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+                Box(
+                    modifier = Modifier
+                        .padding(top = 24.dp)
+                        .size(84.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(44.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
                 Text(
                     text = stringResource(R.string.quicksale_sale_completed),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineMedium,
+                    textAlign = TextAlign.Center,
                 )
 
                 if (summary != null) {
-                    Column(
+                    Panel(
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(16.dp),
                     ) {
                         summary.lines.forEach { line ->
                             QuickSaleReviewLine(line.productName, line.quantity, line.unitPriceCents, line.subtotalCents, locale)
@@ -646,12 +629,12 @@ private fun QuickSaleSuccessScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(stringResource(R.string.quicksale_total_label), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            text = Money(summary.totalCents).format(locale),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            text = stringResource(R.string.quicksale_total_label),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Text(text = Money(summary.totalCents).format(locale), style = MaterialTheme.typography.headlineSmall)
                     }
 
                     Row(
@@ -674,14 +657,17 @@ private fun QuickSaleSuccessScreen(
                         onClick = onNewSale,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 56.dp)
                             .testTag(QuickSaleTestTags.NEW_SALE_BUTTON),
+                        shape = MaterialTheme.shapes.medium,
                     ) {
                         Text(stringResource(R.string.quicksale_new_sale))
                     }
-                    OutlinedButton(
+                    TextButton(
                         onClick = onDone,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 48.dp)
                             .testTag(QuickSaleTestTags.DONE_BUTTON),
                     ) {
                         Text(stringResource(R.string.quicksale_done))
